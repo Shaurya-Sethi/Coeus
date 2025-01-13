@@ -1,0 +1,14 @@
+-- Get all orders with their items and products
+
+SELECT o.id, o.status, u.name as user_name, 
+       p.name as product_name, oi.quantity, oi.unit_price
+FROM orders o
+JOIN users u ON o.user_id = u.id
+JOIN order_items oi ON o.id = oi.order_id
+JOIN products p ON oi.product_id = p.id;
+
+-- Get product categories with their parent categories
+
+SELECT c1.name as category, c2.name as parent_category
+FROM categories c1
+LEFT JOIN categories c2 ON c1.parent_category_id = c2.id;

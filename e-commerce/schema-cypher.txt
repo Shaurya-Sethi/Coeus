@@ -1,0 +1,107 @@
+// Clear existing data
+MATCH (n) DETACH DELETE n;
+
+// Create tables as nodes
+CREATE (users:Table {name: 'users'})
+CREATE (orders:Table {name: 'orders'})
+CREATE (products:Table {name: 'products'})
+CREATE (order_items:Table {name: 'order_items'})
+CREATE (categories:Table {name: 'categories'})
+CREATE (addresses:Table {name: 'addresses'});
+
+// Users table columns
+CREATE (user_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (user_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
+CREATE (user_email:Column {name: 'email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL'})
+CREATE (user_password:Column {name: 'password_hash', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
+CREATE (user_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
+CREATE (user_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+// Orders table columns
+CREATE (order_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (order_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (order_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'})
+CREATE (order_total:Column {name: 'total_amount', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'})
+CREATE (order_address_id:Column {name: 'shipping_address_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (order_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
+CREATE (order_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+// Products table columns
+CREATE (product_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (product_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
+CREATE (product_description:Column {name: 'description', type: 'TEXT'})
+CREATE (product_price:Column {name: 'price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'})
+CREATE (product_stock:Column {name: 'stock_quantity', type: 'INTEGER', constraints: 'NOT NULL'})
+CREATE (product_category_id:Column {name: 'category_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (product_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
+CREATE (product_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+// Order Items table columns
+CREATE (order_item_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (order_item_order_id:Column {name: 'order_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (order_item_product_id:Column {name: 'product_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (order_item_quantity:Column {name: 'quantity', type: 'INTEGER', constraints: 'NOT NULL'})
+CREATE (order_item_price:Column {name: 'unit_price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+
+// Categories table columns
+CREATE (category_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (category_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
+CREATE (category_description:Column {name: 'description', type: 'TEXT'})
+CREATE (category_parent_id:Column {name: 'parent_category_id', type: 'UUID'});
+
+// Addresses table columns
+CREATE (address_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
+CREATE (address_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'})
+CREATE (address_line1:Column {name: 'address_line1', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
+CREATE (address_line2:Column {name: 'address_line2', type: 'VARCHAR(255)'})
+CREATE (address_city:Column {name: 'city', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
+CREATE (address_state:Column {name: 'state', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
+CREATE (address_postal:Column {name: 'postal_code', type: 'VARCHAR(20)', constraints: 'NOT NULL'})
+CREATE (address_country:Column {name: 'country', type: 'VARCHAR(100)', constraints: 'NOT NULL'});
+
+// Connect columns to their tables
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'users' AND c.name IN ['id', 'name', 'email', 'password_hash', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'orders' AND c.name IN ['id', 'user_id', 'status', 'total_amount', 'shipping_address_id', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'products' AND c.name IN ['id', 'name', 'description', 'price', 'stock_quantity', 'category_id', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'order_items' AND c.name IN ['id', 'order_id', 'product_id', 'quantity', 'unit_price']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'categories' AND c.name IN ['id', 'name', 'description', 'parent_category_id']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'addresses' AND c.name IN ['id', 'user_id', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+// Create relationships between tables
+MATCH (users:Table {name: 'users'}), (orders:Table {name: 'orders'})
+CREATE (orders)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+
+MATCH (orders:Table {name: 'orders'}), (addresses:Table {name: 'addresses'})
+CREATE (orders)-[:FOREIGN_KEY {from: 'shipping_address_id', to: 'id'}]->(addresses);
+
+MATCH (addresses:Table {name: 'addresses'}), (users:Table {name: 'users'})
+CREATE (addresses)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+
+MATCH (order_items:Table {name: 'order_items'}), (orders:Table {name: 'orders'})
+CREATE (order_items)-[:FOREIGN_KEY {from: 'order_id', to: 'id'}]->(orders);
+
+MATCH (order_items:Table {name: 'order_items'}), (products:Table {name: 'products'})
+CREATE (order_items)-[:FOREIGN_KEY {from: 'product_id', to: 'id'}]->(products);
+
+MATCH (products:Table {name: 'products'}), (categories:Table {name: 'categories'})
+CREATE (products)-[:FOREIGN_KEY {from: 'category_id', to: 'id'}]->(categories);
+
+MATCH (categories:Table {name: 'categories'})
+CREATE (categories)-[:SELF_REFERENCE {from: 'parent_category_id', to: 'id'}]->(categories);

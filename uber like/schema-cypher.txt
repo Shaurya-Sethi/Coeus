@@ -1,0 +1,269 @@
+MATCH (n) DETACH DELETE n;
+
+CREATE (users:Table {name: 'users'});
+CREATE (drivers:Table {name: 'drivers'});
+CREATE (vehicles:Table {name: 'vehicles'});
+CREATE (rides:Table {name: 'rides'});
+CREATE (payments:Table {name: 'payments'});
+CREATE (ratings:Table {name: 'ratings'});
+CREATE (addresses:Table {name: 'addresses'});
+CREATE (support_tickets:Table {name: 'support_tickets'});
+CREATE (promotions:Table {name: 'promotions'});
+CREATE (ride_zones:Table {name: 'ride_zones'});
+CREATE (ride_requests:Table {name: 'ride_requests'});
+CREATE (cancellations:Table {name: 'cancellations'});
+CREATE (fares:Table {name: 'fares'});
+CREATE (notifications:Table {name: 'notifications'});
+CREATE (feedback:Table {name: 'feedback'});
+CREATE (driver_availability:Table {name: 'driver_availability'});
+CREATE (ride_history:Table {name: 'ride_history'});
+CREATE (user_settings:Table {name: 'user_settings'});
+CREATE (driver_licenses:Table {name: 'driver_licenses'});
+CREATE (vehicle_inspections:Table {name: 'vehicle_inspections'});
+
+CREATE (user_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (user_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (user_email:Column {name: 'email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (user_password:Column {name: 'password_hash', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (user_phone:Column {name: 'phone_number', type: 'VARCHAR(20)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (user_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (user_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (user_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (user_preferred_payment:Column {name: 'preferred_payment_method', type: 'VARCHAR(50)'});
+CREATE (user_loyalty_points:Column {name: 'loyalty_points', type: 'INTEGER', constraints: 'DEFAULT 0'});
+CREATE (user_profile_picture:Column {name: 'profile_picture_url', type: 'VARCHAR(255)'});
+CREATE (user_device_id:Column {name: 'device_id', type: 'VARCHAR(255)'});
+CREATE (user_last_login:Column {name: 'last_login', type: 'TIMESTAMP'});
+CREATE (user_language:Column {name: 'language', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (user_timezone:Column {name: 'timezone', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (user_rating:Column {name: 'rating', type: 'DECIMAL(3,2)', constraints: 'DEFAULT 5.0'});
+CREATE (user_blocked:Column {name: 'is_blocked', type: 'BOOLEAN', constraints: 'DEFAULT FALSE'});
+CREATE (user_verification_status:Column {name: 'verification_status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (user_subscription_type:Column {name: 'subscription_type', type: 'VARCHAR(50)'});
+CREATE (user_emergency_contact:Column {name: 'emergency_contact', type: 'VARCHAR(255)'});
+
+CREATE (driver_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (driver_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (driver_email:Column {name: 'email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (driver_phone:Column {name: 'phone_number', type: 'VARCHAR(20)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (driver_password:Column {name: 'password_hash', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (driver_license_number:Column {name: 'license_number', type: 'VARCHAR(100)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (driver_rating:Column {name: 'rating', type: 'DECIMAL(3,2)', constraints: 'DEFAULT 5.0'});
+CREATE (driver_vehicle_id:Column {name: 'vehicle_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (driver_approved_at:Column {name: 'approved_at', type: 'TIMESTAMP'});
+CREATE (driver_availability_status:Column {name: 'availability_status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (driver_last_login:Column {name: 'last_login', type: 'TIMESTAMP'});
+CREATE (driver_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (driver_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (driver_blocked:Column {name: 'is_blocked', type: 'BOOLEAN', constraints: 'DEFAULT FALSE'});
+CREATE (driver_verification_status:Column {name: 'verification_status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (driver_total_rides:Column {name: 'total_rides', type: 'INTEGER', constraints: 'DEFAULT 0'});
+CREATE (driver_online_hours:Column {name: 'online_hours', type: 'DECIMAL(10,2)', constraints: 'DEFAULT 0.0'});
+CREATE (driver_preferred_zone:Column {name: 'preferred_zone_id', type: 'UUID'});
+CREATE (driver_emergency_contact:Column {name: 'emergency_contact', type: 'VARCHAR(255)'});
+CREATE (driver_current_location:Column {name: 'current_location', type: 'GEOMETRY(POINT)'});
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'users' AND c.name IN ['id', 'name', 'email', 'password_hash', 'phone_number', 'created_at', 'updated_at', 'status', 'preferred_payment_method', 'loyalty_points', 'profile_picture_url', 'device_id', 'last_login', 'language', 'timezone', 'rating', 'is_blocked', 'verification_status', 'subscription_type', 'emergency_contact']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'drivers' AND c.name IN ['id', 'name', 'email', 'phone_number', 'password_hash', 'license_number', 'rating', 'vehicle_id', 'approved_at', 'availability_status', 'last_login', 'created_at', 'updated_at', 'is_blocked', 'verification_status', 'total_rides', 'online_hours', 'preferred_zone_id', 'emergency_contact', 'current_location']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (users:Table {name: 'users'}), (rides:Table {name: 'rides'})
+CREATE (rides)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+
+MATCH (drivers:Table {name: 'drivers'}), (rides:Table {name: 'rides'})
+CREATE (rides)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
+
+MATCH (vehicles:Table {name: 'vehicles'}), (drivers:Table {name: 'drivers'})
+CREATE (drivers)-[:FOREIGN_KEY {from: 'vehicle_id', to: 'id'}]->(vehicles);
+
+MATCH (rides:Table {name: 'rides'}), (payments:Table {name: 'payments'})
+CREATE (payments)-[:FOREIGN_KEY {from: 'ride_id', to: 'id'}]->(rides);
+
+CREATE (vehicle_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (vehicle_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (vehicle_license_plate:Column {name: 'license_plate', type: 'VARCHAR(20)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (vehicle_make:Column {name: 'make', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (vehicle_model:Column {name: 'model', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (vehicle_year:Column {name: 'year', type: 'INTEGER', constraints: 'NOT NULL'});
+CREATE (vehicle_color:Column {name: 'color', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (vehicle_capacity:Column {name: 'capacity', type: 'INTEGER', constraints: 'DEFAULT 4'});
+CREATE (vehicle_type:Column {name: 'type', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (vehicle_insurance_number:Column {name: 'insurance_number', type: 'VARCHAR(100)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (vehicle_registration_date:Column {name: 'registration_date', type: 'DATE', constraints: 'NOT NULL'});
+CREATE (vehicle_last_inspection:Column {name: 'last_inspection_date', type: 'DATE'});
+CREATE (vehicle_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (vehicle_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (vehicle_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+
+CREATE (ride_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (ride_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (ride_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (ride_vehicle_id:Column {name: 'vehicle_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (ride_pickup_location:Column {name: 'pickup_location', type: 'GEOMETRY(POINT)', constraints: 'NOT NULL'});
+CREATE (ride_dropoff_location:Column {name: 'dropoff_location', type: 'GEOMETRY(POINT)', constraints: 'NOT NULL'});
+CREATE (ride_distance:Column {name: 'distance', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+CREATE (ride_duration:Column {name: 'duration', type: 'INTEGER', constraints: 'NOT NULL'});
+CREATE (ride_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (ride_fare:Column {name: 'fare', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+CREATE (ride_payment_id:Column {name: 'payment_id', type: 'UUID'});
+CREATE (ride_requested_at:Column {name: 'requested_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (ride_started_at:Column {name: 'started_at', type: 'TIMESTAMP'});
+CREATE (ride_completed_at:Column {name: 'completed_at', type: 'TIMESTAMP'});
+CREATE (ride_cancellation_reason:Column {name: 'cancellation_reason', type: 'VARCHAR(255)'});
+CREATE (ride_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (ride_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (payment_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (payment_ride_id:Column {name: 'ride_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (payment_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (payment_amount:Column {name: 'amount', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+CREATE (payment_method:Column {name: 'method', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (payment_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (payment_transaction_id:Column {name: 'transaction_id', type: 'VARCHAR(100)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (payment_processed_at:Column {name: 'processed_at', type: 'TIMESTAMP'});
+CREATE (payment_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (payment_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (rating_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (rating_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (rating_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (rating_ride_id:Column {name: 'ride_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (rating_score:Column {name: 'score', type: 'INTEGER', constraints: 'NOT NULL'});
+CREATE (rating_comment:Column {name: 'comment', type: 'TEXT'});
+CREATE (rating_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (rating_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (ticket_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (ticket_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (ticket_driver_id:Column {name: 'driver_id', type: 'UUID'});
+CREATE (ticket_ride_id:Column {name: 'ride_id', type: 'UUID'});
+CREATE (ticket_category:Column {name: 'category', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (ticket_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (ticket_description:Column {name: 'description', type: 'TEXT', constraints: 'NOT NULL'});
+CREATE (ticket_resolved_at:Column {name: 'resolved_at', type: 'TIMESTAMP'});
+CREATE (ticket_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (ticket_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+
+CREATE (promotion_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (promotion_code:Column {name: 'code', type: 'VARCHAR(50)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (promotion_description:Column {name: 'description', type: 'TEXT'});
+CREATE (promotion_discount_type:Column {name: 'discount_type', type: 'VARCHAR(50)', constraints: 'NOT NULL'}); 
+CREATE (promotion_discount_value:Column {name: 'discount_value', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+CREATE (promotion_start_date:Column {name: 'start_date', type: 'DATE', constraints: 'NOT NULL'});
+CREATE (promotion_end_date:Column {name: 'end_date', type: 'DATE', constraints: 'NOT NULL'});
+CREATE (promotion_max_usage:Column {name: 'max_usage', type: 'INTEGER', constraints: 'DEFAULT 0'});
+CREATE (promotion_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (promotion_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (doc_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (doc_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (doc_type:Column {name: 'document_type', type: 'VARCHAR(50)', constraints: 'NOT NULL'}); 
+CREATE (doc_number:Column {name: 'document_number', type: 'VARCHAR(100)', constraints: 'NOT NULL'});
+CREATE (doc_issue_date:Column {name: 'issue_date', type: 'DATE'});
+CREATE (doc_expiry_date:Column {name: 'expiry_date', type: 'DATE'});
+CREATE (doc_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (doc_uploaded_at:Column {name: 'uploaded_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (doc_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (doc_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (route_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (route_ride_id:Column {name: 'ride_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (route_latitude:Column {name: 'latitude', type: 'DECIMAL(9,6)', constraints: 'NOT NULL'});
+CREATE (route_longitude:Column {name: 'longitude', type: 'DECIMAL(9,6)', constraints: 'NOT NULL'});
+CREATE (route_timestamp:Column {name: 'timestamp', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (route_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (route_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (feedback_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (feedback_ride_id:Column {name: 'ride_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (feedback_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (feedback_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (feedback_comments:Column {name: 'comments', type: 'TEXT'});
+CREATE (feedback_rating:Column {name: 'rating', type: 'INTEGER', constraints: 'NOT NULL'}); 
+CREATE (feedback_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (feedback_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (corp_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (corp_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (corp_contact_name:Column {name: 'contact_name', type: 'VARCHAR(255)', constraints: 'NOT NULL'});
+CREATE (corp_contact_email:Column {name: 'contact_email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL'});
+CREATE (corp_phone:Column {name: 'phone', type: 'VARCHAR(15)', constraints: 'NOT NULL'});
+CREATE (corp_address:Column {name: 'address', type: 'TEXT', constraints: 'NOT NULL'});
+CREATE (corp_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (corp_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (corp_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (corp_user_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (corp_user_corp_id:Column {name: 'corporate_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (corp_user_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (corp_user_role:Column {name: 'role', type: 'VARCHAR(50)', constraints: 'NOT NULL'});
+CREATE (corp_user_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (corp_user_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (driver_rating_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (driver_rating_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (driver_rating_score:Column {name: 'score', type: 'DECIMAL(3,2)', constraints: 'NOT NULL'});
+CREATE (driver_rating_total_reviews:Column {name: 'total_reviews', type: 'INTEGER', constraints: 'NOT NULL'});
+CREATE (driver_rating_last_updated:Column {name: 'last_updated', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (driver_rating_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (driver_rating_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+CREATE (availability_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'});
+CREATE (availability_driver_id:Column {name: 'driver_id', type: 'UUID', constraints: 'NOT NULL'});
+CREATE (availability_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'}); 
+CREATE (availability_last_online:Column {name: 'last_online', type: 'TIMESTAMP'});
+CREATE (availability_last_updated:Column {name: 'last_updated', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (availability_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+CREATE (availability_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'vehicles' AND c.name IN ['id', 'driver_id', 'license_plate', 'make', 'model', 'year', 'color', 'capacity', 'type', 'insurance_number', 'registration_date', 'last_inspection_date', 'created_at', 'updated_at', 'status']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'rides' AND c.name IN ['id', 'user_id', 'driver_id', 'vehicle_id', 'pickup_location', 'dropoff_location', 'distance', 'duration', 'status', 'fare', 'payment_id', 'requested_at', 'started_at', 'completed_at', 'cancellation_reason', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (rides:Table {name: 'rides'}), (users:Table {name: 'users'})
+CREATE (rides)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+
+MATCH (rides:Table {name: 'rides'}), (drivers:Table {name: 'drivers'})
+CREATE (rides)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
+
+MATCH (rides:Table {name: 'rides'}), (vehicles:Table {name: 'vehicles'})
+CREATE (rides)-[:FOREIGN_KEY {from: 'vehicle_id', to: 'id'}]->(vehicles);
+
+MATCH (payments:Table {name: 'payments'}), (rides:Table {name: 'rides'})
+CREATE (payments)-[:FOREIGN_KEY {from: 'ride_id', to: 'id'}]->(rides);
+
+MATCH (promotion:Table {name: 'promotions'}), (users:Table {name: 'users'})
+CREATE (promotion)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+MATCH (driver_documents:Table {name: 'driver_documents'}), (drivers:Table {name: 'drivers'})
+CREATE (driver_documents)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
+MATCH (ride_routes:Table {name: 'ride_routes'}), (rides:Table {name: 'rides'})
+CREATE (ride_routes)-[:FOREIGN_KEY {from: 'ride_id', to: 'id'}]->(rides);
+
+MATCH (ride_feedback:Table {name: 'ride_feedback'}), (rides:Table {name: 'rides'})
+CREATE (ride_feedback)-[:FOREIGN_KEY {from: 'ride_id', to: 'id'}]->(rides);
+
+MATCH (ride_feedback:Table {name: 'ride_feedback'}), (users:Table {name: 'users'})
+CREATE (ride_feedback)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+
+MATCH (ride_feedback:Table {name: 'ride_feedback'}), (drivers:Table {name: 'drivers'})
+CREATE (ride_feedback)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
+MATCH (corporate_accounts:Table {name: 'corporate_accounts'}), (users:Table {name: 'users'})
+CREATE (corporate_accounts)-[:FOREIGN_KEY {from: 'contact_user_id', to: 'id'}]->(users);
+MATCH (corporate_users:Table {name: 'corporate_users'}), (corporate_accounts:Table {name: 'corporate_accounts'})
+CREATE (corporate_users)-[:FOREIGN_KEY {from: 'corporate_id', to: 'id'}]->(corporate_accounts);
+
+MATCH (corporate_users:Table {name: 'corporate_users'}), (users:Table {name: 'users'})
+CREATE (corporate_users)-[:FOREIGN_KEY {from: 'user_id', to: 'id'}]->(users);
+MATCH (driver_ratings:Table {name: 'driver_ratings'}), (drivers:Table {name: 'drivers'})
+CREATE (driver_ratings)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
+MATCH (driver_availability:Table {name: 'driver_availability'}), (drivers:Table {name: 'drivers'})
+CREATE (driver_availability)-[:FOREIGN_KEY {from: 'driver_id', to: 'id'}]->(drivers);
