@@ -57,6 +57,7 @@ class Neo4jHandler:
 # Sentence-Transformer Model
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
+@st.cache_data
 def fetch_embedding_locally(text):
     """
     Generate embedding for a given text using SentenceTransformer.
@@ -68,6 +69,7 @@ def fetch_embedding_locally(text):
     embedding = model.encode([text])[0]
     return embedding.tolist()
 
+@st.cache_data
 def generate_schema_embeddings_locally(schema):
     """
     Generate schema embeddings using local SentenceTransformer with descriptions.
@@ -87,6 +89,7 @@ def generate_schema_embeddings_locally(schema):
             raise
     return schema_embeddings
 
+@st.cache_data
 def find_relevant_schema(query_embedding, schema_embeddings, threshold=0.2):
     """
     Find tables in the schema with embeddings similar to the query embedding.
@@ -139,7 +142,7 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
     else:
         raise Exception(f"ArliAI API call failed: {response.text}")
 
-# Relationship Columns Identification
+@st.cache_data
 def identify_relationship_columns(schema, relationships):
     """
     Identify relationship columns based on relationships between tables.
@@ -154,6 +157,7 @@ def identify_relationship_columns(schema, relationships):
                     relationship_columns.add(key)  # Add property/column from the relationship
     return relationship_columns
 
+@st.cache_data
 def prune_non_relationship_columns(user_query_embedding, schema, relationships, similarity_threshold):
     """
     Prune non-relationship columns based on similarity to the user query embedding.
@@ -192,7 +196,6 @@ def prune_non_relationship_columns(user_query_embedding, schema, relationships, 
 
     return pruned_schema
 
-# Streamlit Application
 def main():
     st.title("SQL Query Generator Using NLP")
 
