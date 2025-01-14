@@ -32,6 +32,28 @@ class Neo4jHandler:
                 })
             return schema
 
+    def fetch_relationships(self, relevant_tables):
+        """
+        Fetch the relationships between the relevant tables.
+        """
+        relationships = {}
+        with self.driver.session(database=self.database) as session:
+            for table in relevant_tables:
+                query = f"""
+                MATCH (t:{table})-[r]->(related)
+                RETURN type(r) AS relationship, related
+                """
+                result = session.run(query)
+                related_tables = {}
+                for record in result:
+                    rel_type = record["relationship"]
+                    related_table = record["related"]
+                    if related_table not in related_tables:
+                        related_tables[related_table] = []
+                    related_tables[related_table].append({"type": rel_type})
+                relationships[table] = related_tables
+        return relationships
+
 # Sentence-Transformer Model
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
@@ -59,7 +81,7 @@ def generate_schema_embeddings_locally(schema):
         
         try:
             embedding = fetch_embedding_locally(full_context)
-            schema_embeddings[table] = {"embedding": embedding, "columns": [column["name"] for column in data["columns"]]}
+            schema_embeddings[table] = {"embedding": embedding, "columns": [column["name"] for column in data["columns"]] }
         except Exception as e:
             print(f"Failed to generate embedding for {table}. Error: {e}")
             raise
@@ -117,6 +139,59 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
     else:
         raise Exception(f"ArliAI API call failed: {response.text}")
 
+# Relationship Columns Identification
+def identify_relationship_columns(schema, relationships):
+    """
+    Identify relationship columns based on relationships between tables.
+    """
+    relationship_columns = set()  # Use a set to avoid duplicates
+    
+    # For each relationship, find the columns that define the relationship
+    for from_table, related_tables in relationships.items():
+        for to_table, rels in related_tables.items():
+            for rel in rels:
+                for key in rel.keys():  # Relationship property/column
+                    relationship_columns.add(key)  # Add property/column from the relationship
+    return relationship_columns
+
+def prune_non_relationship_columns(user_query_embedding, schema, relationships, similarity_threshold):
+    """
+    Prune non-relationship columns based on similarity to the user query embedding.
+    """
+    pruned_schema = {}
+    relationship_columns = identify_relationship_columns(schema, relationships)
+
+    # Keep track of all unique columns across tables
+    unique_columns = set()
+
+    for table, table_data in schema.items():
+        relevant_columns = []
+
+        for column in table_data["columns"]:
+            column_name = column["name"]
+            
+            # If the column is part of relationships, keep it
+            if column_name in relationship_columns:
+                relevant_columns.append(column_name)
+                unique_columns.add(column_name)  # Mark as unique
+            else:
+                # Check similarity for non-relationship columns
+                column_context = f"Table: {table}, Column: {column_name}, Description: {table_data['description']}"
+                column_embedding = fetch_embedding_locally(column_context)
+                column_similarity = cosine_similarity([user_query_embedding], [column_embedding])[0][0]
+
+                if column_similarity > similarity_threshold:  # Only keep if similarity is above threshold
+                    # Only add unique columns
+                    if column_name not in unique_columns:
+                        relevant_columns.append(column_name)
+                        unique_columns.add(column_name)
+
+        # Only add the table if it has relevant columns
+        if relevant_columns:
+            pruned_schema[table] = relevant_columns
+
+    return pruned_schema
+
 # Streamlit Application
 def main():
     st.title("SQL Query Generator Using NLP")
@@ -129,19 +204,19 @@ def main():
     database_name = st.sidebar.text_input("Database Name", "e-commerce")
     arliAI_api_key = st.sidebar.text_input("ArliAI API Key", type="password")
 
-    user_query = st.text_area("User Query", "List all users, their orders, and the products in those orders.")
-
-    # Add a slider for similarity threshold
+    # Slider for similarity threshold
     similarity_threshold = st.sidebar.slider(
         "Similarity Threshold",
         min_value=0.0,
         max_value=1.0,
         value=0.2,
         step=0.01,
-        format="%.2f"
+        help="Adjust the similarity threshold for pruning columns"
     )
 
-    @st.cache_data
+    user_query = st.text_area("User Query", "List all users, their orders, and the products in those orders.")
+
+    @st.cache_resource
     def initialize_schema_and_embeddings():
         """
         Fetch schema from Neo4j and generate embeddings.
@@ -158,18 +233,33 @@ def main():
     st.subheader("Database Schema")
     st.json(schema)
 
+    # Initialize the Neo4j handler again for fetching relationships after pruning
+    neo4j_handler = Neo4jHandler(uri=neo4j_uri, user=neo4j_user, password=neo4j_password, database=database_name)
+
     # Process Query
     if st.button("Generate SQL Query"):
         st.write("Processing your query...")
+
         try:
             user_query_embedding = fetch_embedding_locally(user_query)
-            pruned_schema = find_relevant_schema(user_query_embedding, schema_embeddings, threshold=similarity_threshold)
+
+            # Step 1: Prune tables based on similarity with the query
+            relevant_tables = find_relevant_schema(user_query_embedding, schema_embeddings)
+
+            # Step 2: Fetch relationships for the pruned tables
+            relationships = neo4j_handler.fetch_relationships(relevant_tables)
+
+            # Step 3: Prune columns based on relationships and query relevance
+            pruned_schema = prune_non_relationship_columns(user_query_embedding, schema, relationships, similarity_threshold)
+
             st.subheader("Pruned Schema")
             st.json(pruned_schema)
 
+            # Generate SQL query based on pruned schema
             generated_sql = generate_sql_arliAI(arliAI_api_key, user_query, pruned_schema)
             st.subheader("Generated SQL Query")
             st.code(generated_sql, language="sql")
+        
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
