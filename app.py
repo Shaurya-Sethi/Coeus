@@ -131,6 +131,16 @@ def main():
 
     user_query = st.text_area("User Query", "List all users, their orders, and the products in those orders.")
 
+    # Add a slider for similarity threshold
+    similarity_threshold = st.sidebar.slider(
+        "Similarity Threshold",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.2,
+        step=0.01,
+        format="%.2f"
+    )
+
     @st.cache_data
     def initialize_schema_and_embeddings():
         """
@@ -153,7 +163,7 @@ def main():
         st.write("Processing your query...")
         try:
             user_query_embedding = fetch_embedding_locally(user_query)
-            pruned_schema = find_relevant_schema(user_query_embedding, schema_embeddings)
+            pruned_schema = find_relevant_schema(user_query_embedding, schema_embeddings, threshold=similarity_threshold)
             st.subheader("Pruned Schema")
             st.json(pruned_schema)
 
