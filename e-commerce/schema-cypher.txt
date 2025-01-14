@@ -1,63 +1,104 @@
 // Clear existing data
 MATCH (n) DETACH DELETE n;
 
-// Create tables as nodes
-CREATE (users:Table {name: 'users'})
-CREATE (orders:Table {name: 'orders'})
-CREATE (products:Table {name: 'products'})
-CREATE (order_items:Table {name: 'order_items'})
-CREATE (categories:Table {name: 'categories'})
-CREATE (addresses:Table {name: 'addresses'});
+// Create tables as nodes with descriptions
+CREATE (users:Table {name: 'users', description: 'Stores user account details and preferences'});
+CREATE (orders:Table {name: 'orders', description: 'Represents user orders, including their status and associated costs'});
+CREATE (products:Table {name: 'products', description: 'Contains product information like name, description, and price'});
+CREATE (order_items:Table {name: 'order_items', description: 'Links products to orders, including quantities and prices'});
+CREATE (categories:Table {name: 'categories', description: 'Categorizes products for better organization'});
+CREATE (addresses:Table {name: 'addresses', description: 'Stores user shipping and billing addresses'});
+CREATE (inventory:Table {name: 'inventory', description: 'Tracks product stock levels and restocking history'});
+CREATE (reviews:Table {name: 'reviews', description: 'Allows users to leave reviews for products'});
+CREATE (coupons:Table {name: 'coupons', description: 'Manages promotional codes and discounts'});
+CREATE (shipments:Table {name: 'shipments', description: 'Monitors shipping statuses for orders'});
 
-// Users table columns
-CREATE (user_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (user_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
-CREATE (user_email:Column {name: 'email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL'})
-CREATE (user_password:Column {name: 'password_hash', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
-CREATE (user_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
-CREATE (user_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+// Users table columns with descriptions
+CREATE (user_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each user'});
+CREATE (user_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL', description: 'Full name of the user'});
+CREATE (user_email:Column {name: 'email', type: 'VARCHAR(255)', constraints: 'UNIQUE, NOT NULL', description: 'Email address of the user'});
+CREATE (user_password:Column {name: 'password_hash', type: 'VARCHAR(255)', constraints: 'NOT NULL', description: 'Hashed password for user authentication'});
+CREATE (user_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the user account was created'});
+CREATE (user_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the user account'});
 
-// Orders table columns
-CREATE (order_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (order_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (order_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL'})
-CREATE (order_total:Column {name: 'total_amount', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'})
-CREATE (order_address_id:Column {name: 'shipping_address_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (order_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
-CREATE (order_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+// Orders table columns with descriptions
+CREATE (order_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each order'});
+CREATE (order_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the user who placed the order'});
+CREATE (order_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL', description: 'Current status of the order'});
+CREATE (order_total:Column {name: 'total_amount', type: 'DECIMAL(10,2)', constraints: 'NOT NULL', description: 'Total cost of the order'});
+CREATE (order_address_id:Column {name: 'shipping_address_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the shipping address for the order'});
+CREATE (order_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the order was created'});
+CREATE (order_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the order'});
 
-// Products table columns
-CREATE (product_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (product_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
-CREATE (product_description:Column {name: 'description', type: 'TEXT'})
-CREATE (product_price:Column {name: 'price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'})
-CREATE (product_stock:Column {name: 'stock_quantity', type: 'INTEGER', constraints: 'NOT NULL'})
-CREATE (product_category_id:Column {name: 'category_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (product_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL'})
-CREATE (product_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL'});
+// Products table columns with descriptions
+CREATE (product_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each product'});
+CREATE (product_name:Column {name: 'name', type: 'VARCHAR(255)', constraints: 'NOT NULL', description: 'Name of the product'});
+CREATE (product_description:Column {name: 'description', type: 'TEXT', description: 'Detailed description of the product'});
+CREATE (product_price:Column {name: 'price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL', description: 'Price of the product'});
+CREATE (product_stock:Column {name: 'stock_quantity', type: 'INTEGER', constraints: 'NOT NULL', description: 'Number of units available in stock'});
+CREATE (product_category_id:Column {name: 'category_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the product category'});
+CREATE (product_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the product was created'});
+CREATE (product_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the product'});
 
-// Order Items table columns
-CREATE (order_item_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (order_item_order_id:Column {name: 'order_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (order_item_product_id:Column {name: 'product_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (order_item_quantity:Column {name: 'quantity', type: 'INTEGER', constraints: 'NOT NULL'})
-CREATE (order_item_price:Column {name: 'unit_price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL'});
+// Order Items table columns with descriptions
+CREATE (order_item_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each order item'});
+CREATE (order_item_order_id:Column {name: 'order_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the associated order'});
+CREATE (order_item_product_id:Column {name: 'product_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the associated product'});
+CREATE (order_item_quantity:Column {name: 'quantity', type: 'INTEGER', constraints: 'NOT NULL', description: 'Quantity of the product in the order'});
+CREATE (order_item_price:Column {name: 'unit_price', type: 'DECIMAL(10,2)', constraints: 'NOT NULL', description: 'Price per unit of the product in the order'});
 
-// Categories table columns
-CREATE (category_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (category_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
-CREATE (category_description:Column {name: 'description', type: 'TEXT'})
-CREATE (category_parent_id:Column {name: 'parent_category_id', type: 'UUID'});
+// Categories table columns with descriptions
+CREATE (category_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each category'});
+CREATE (category_name:Column {name: 'name', type: 'VARCHAR(100)', constraints: 'NOT NULL', description: 'Name of the category'});
+CREATE (category_description:Column {name: 'description', type: 'TEXT', description: 'Description of the category'});
+CREATE (category_parent_id:Column {name: 'parent_category_id', type: 'UUID', description: 'Foreign key linking to the parent category, if applicable'});
 
-// Addresses table columns
-CREATE (address_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY'})
-CREATE (address_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL'})
-CREATE (address_line1:Column {name: 'address_line1', type: 'VARCHAR(255)', constraints: 'NOT NULL'})
-CREATE (address_line2:Column {name: 'address_line2', type: 'VARCHAR(255)'})
-CREATE (address_city:Column {name: 'city', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
-CREATE (address_state:Column {name: 'state', type: 'VARCHAR(100)', constraints: 'NOT NULL'})
-CREATE (address_postal:Column {name: 'postal_code', type: 'VARCHAR(20)', constraints: 'NOT NULL'})
-CREATE (address_country:Column {name: 'country', type: 'VARCHAR(100)', constraints: 'NOT NULL'});
+// Addresses table columns with descriptions
+CREATE (address_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each address'});
+CREATE (address_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the associated user'});
+CREATE (address_line1:Column {name: 'address_line1', type: 'VARCHAR(255)', constraints: 'NOT NULL', description: 'First line of the address'});
+CREATE (address_line2:Column {name: 'address_line2', type: 'VARCHAR(255)', description: 'Second line of the address (optional)'});
+CREATE (address_city:Column {name: 'city', type: 'VARCHAR(100)', constraints: 'NOT NULL', description: 'City of the address'});
+CREATE (address_state:Column {name: 'state', type: 'VARCHAR(100)', constraints: 'NOT NULL', description: 'State of the address'});
+CREATE (address_postal:Column {name: 'postal_code', type: 'VARCHAR(20)', constraints: 'NOT NULL', description: 'Postal code of the address'});
+CREATE (address_country:Column {name: 'country', type: 'VARCHAR(100)', constraints: 'NOT NULL', description: 'Country of the address'});
+
+// Inventory table columns with descriptions
+CREATE (inventory_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each inventory record'});
+CREATE (inventory_product_id:Column {name: 'product_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the associated product'});
+CREATE (inventory_quantity:Column {name: 'quantity', type: 'INTEGER', constraints: 'NOT NULL', description: 'Number of units available in stock'});
+CREATE (inventory_restocked_at:Column {name: 'restocked_at', type: 'TIMESTAMP', description: 'Timestamp of the last restock'});
+CREATE (inventory_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the inventory record was created'});
+CREATE (inventory_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the inventory record'});
+
+// Reviews table columns with descriptions
+CREATE (review_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each review'});
+CREATE (review_product_id:Column {name: 'product_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the reviewed product'});
+CREATE (review_user_id:Column {name: 'user_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the user who left the review'});
+CREATE (review_rating:Column {name: 'rating', type: 'INTEGER', constraints: 'NOT NULL', description: 'Rating score given by the user'});
+CREATE (review_comment:Column {name: 'comment', type: 'TEXT', description: 'Comment provided by the user'});
+CREATE (review_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the review was created'});
+CREATE (review_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the review'});
+
+// Coupons table columns with descriptions
+CREATE (coupon_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each coupon'});
+CREATE (coupon_code:Column {name: 'code', type: 'VARCHAR(50)', constraints: 'UNIQUE, NOT NULL', description: 'Promotional code for the coupon'});
+CREATE (coupon_discount:Column {name: 'discount', type: 'DECIMAL(10,2)', constraints: 'NOT NULL', description: 'Discount amount or percentage provided by the coupon'});
+CREATE (coupon_start_date:Column {name: 'start_date', type: 'DATE', constraints: 'NOT NULL', description: 'Start date of the coupon validity'});
+CREATE (coupon_end_date:Column {name: 'end_date', type: 'DATE', constraints: 'NOT NULL', description: 'End date of the coupon validity'});
+CREATE (coupon_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the coupon was created'});
+CREATE (coupon_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the coupon'});
+
+// Shipments table columns with descriptions
+CREATE (shipment_id:Column {name: 'id', type: 'UUID', constraints: 'PRIMARY KEY', description: 'Unique identifier for each shipment'});
+CREATE (shipment_order_id:Column {name: 'order_id', type: 'UUID', constraints: 'NOT NULL', description: 'Foreign key linking to the associated order'});
+CREATE (shipment_status:Column {name: 'status', type: 'VARCHAR(50)', constraints: 'NOT NULL', description: 'Current status of the shipment'});
+CREATE (shipment_carrier:Column {name: 'carrier', type: 'VARCHAR(100)', description: 'Name of the shipping carrier'});
+CREATE (shipment_tracking_number:Column {name: 'tracking_number', type: 'VARCHAR(100)', constraints: 'UNIQUE', description: 'Tracking number for the shipment'});
+CREATE (shipment_shipped_at:Column {name: 'shipped_at', type: 'TIMESTAMP', description: 'Timestamp of when the shipment was dispatched'});
+CREATE (shipment_delivered_at:Column {name: 'delivered_at', type: 'TIMESTAMP', description: 'Timestamp of when the shipment was delivered'});
+CREATE (shipment_created_at:Column {name: 'created_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of when the shipment record was created'});
+CREATE (shipment_updated_at:Column {name: 'updated_at', type: 'TIMESTAMP', constraints: 'NOT NULL', description: 'Timestamp of the last update to the shipment record'});
 
 // Connect columns to their tables
 MATCH (c:Column), (t:Table)
@@ -82,6 +123,22 @@ CREATE (c)-[:BELONGS_TO]->(t);
 
 MATCH (c:Column), (t:Table)
 WHERE t.name = 'addresses' AND c.name IN ['id', 'user_id', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'inventory' AND c.name IN ['id', 'product_id', 'quantity', 'restocked_at', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'reviews' AND c.name IN ['id', 'product_id', 'user_id', 'rating', 'comment', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'coupons' AND c.name IN ['id', 'code', 'discount', 'start_date', 'end_date', 'created_at', 'updated_at']
+CREATE (c)-[:BELONGS_TO]->(t);
+
+MATCH (c:Column), (t:Table)
+WHERE t.name = 'shipments' AND c.name IN ['id', 'order_id', 'status', 'carrier', 'tracking_number', 'shipped_at', 'delivered_at', 'created_at', 'updated_at']
 CREATE (c)-[:BELONGS_TO]->(t);
 
 // Create relationships between tables

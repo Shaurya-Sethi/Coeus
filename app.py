@@ -17,13 +17,19 @@ class Neo4jHandler:
     def fetch_table_schema(self):
         query = """
         MATCH (t:Table)<-[:BELONGS_TO]-(c:Column)
-        RETURN t.name AS table, collect(c.name) AS columns
+        RETURN t.name AS table, t.description AS table_description, c.name AS column, c.description AS column_description
         """
         with self.driver.session(database=self.database) as session:
             result = session.run(query)
             schema = {}
             for record in result:
-                schema[record["table"]] = list(set(record["columns"]))  # Remove duplicates
+                table = record["table"]
+                if table not in schema:
+                    schema[table] = {"description": record["table_description"], "columns": []}
+                schema[table]["columns"].append({
+                    "name": record["column"],
+                    "description": record["column_description"]
+                })
             return schema
 
 # Sentence-Transformer Model
@@ -42,14 +48,18 @@ def fetch_embedding_locally(text):
 
 def generate_schema_embeddings_locally(schema):
     """
-    Generate schema embeddings using local SentenceTransformer.
+    Generate schema embeddings using local SentenceTransformer with descriptions.
     """
     schema_embeddings = {}
-    for table, columns in schema.items():
-        context = f"Table: {table}, Columns: {', '.join(columns)}"
+    for table, data in schema.items():
+        # Create context that includes both the table and column descriptions
+        table_context = f"Table: {table}, Description: {data['description']}, Columns: "
+        column_contexts = [f"{column['name']} (Description: {column['description']})" for column in data["columns"]]
+        full_context = table_context + ", ".join(column_contexts)
+        
         try:
-            embedding = fetch_embedding_locally(context)
-            schema_embeddings[table] = {"embedding": embedding, "columns": columns}
+            embedding = fetch_embedding_locally(full_context)
+            schema_embeddings[table] = {"embedding": embedding, "columns": [column["name"] for column in data["columns"]]}
         except Exception as e:
             print(f"Failed to generate embedding for {table}. Error: {e}")
             raise

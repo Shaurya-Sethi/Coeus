@@ -1,138 +1,125 @@
+-- Create the tables
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    parent_category_id UUID REFERENCES categories(id),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    stock_quantity INTEGER NOT NULL,
-    category_id UUID NOT NULL REFERENCES categories(id),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE addresses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id),
-    address_line1 VARCHAR(255) NOT NULL,
-    address_line2 VARCHAR(255),
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(100) NOT NULL,
-    postal_code VARCHAR(20) NOT NULL,
-    country VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id),
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
     status VARCHAR(50) NOT NULL,
-    total_amount DECIMAL(10,2) NOT NULL,
-    shipping_address_id UUID NOT NULL REFERENCES addresses(id),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    total_amount DECIMAL(10, 2) NOT NULL,
+    shipping_address_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE products (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    stock_quantity INTEGER NOT NULL,
+    category_id UUID NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE order_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES orders(id),
-    product_id UUID NOT NULL REFERENCES products(id),
+    id UUID PRIMARY KEY,
+    order_id UUID NOT NULL,
+    product_id UUID NOT NULL,
     quantity INTEGER NOT NULL,
-    unit_price DECIMAL(10,2) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    unit_price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Insert realistic sample data
--- Categories with realistic hierarchy
-INSERT INTO categories (id, name, description, parent_category_id) VALUES
-('11111111-1111-1111-1111-111111111111', 'Electronics', 'Latest electronic devices and accessories', NULL),
-('22222222-2222-2222-2222-222222222222', 'Smartphones', 'Latest mobile phones and accessories', '11111111-1111-1111-1111-111111111111'),
-('33333333-3333-3333-3333-333333333333', 'Laptops', 'Professional and gaming laptops', '11111111-1111-1111-1111-111111111111'),
-('44444444-4444-4444-4444-444444444444', 'Computer Accessories', 'Peripherals and accessories', '11111111-1111-1111-1111-111111111111'),
-('55555555-5555-5555-5555-555555555555', 'Home & Kitchen', 'Home appliances and kitchenware', NULL),
-('66666666-6666-6666-6666-666666666666', 'Small Appliances', 'Compact kitchen appliances', '55555555-5555-5555-5555-555555555555'),
-('77777777-7777-7777-7777-777777777777', 'Cookware', 'Pots, pans, and cooking accessories', '55555555-5555-5555-5555-555555555555');
+CREATE TABLE categories (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    parent_category_id UUID
+);
 
--- Users with realistic names and emails
-INSERT INTO users (id, name, email, password_hash) VALUES
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Emily Johnson', 'emily.j@example.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyBAWCHCL4Xlgu'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Michael Chen', 'mchen@example.com', '$2a$12$glI.xJyC8bV3xz8U/XZkKOH.9xtiT2hH/ICuIHs2WgLxhx3ykQEKi'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Sarah Williams', 'swilliams@example.com', '$2a$12$QJigxHjCAl4ODxESOqbW7.swCQKadtnNkBg3rNGbgBYAZCqf7rt.m'),
-('dddddddd-dddd-dddd-dddd-dddddddddddd', 'James Martinez', 'james.m@example.com', '$2a$12$BtlGxF9CAF8ENcAHqk0SD.Zl0K3RVp5w5bZGXvZ6O1OSNBFwgGOXO'),
-('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Lisa Thompson', 'lisa.t@example.com', '$2a$12$kL9Ag3q4njI8NZxfEXHTF.XRF0bPj0vD5B4T5mHzLd.pi27brD6ji');
+CREATE TABLE payments (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    order_id UUID NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
 
--- Products with realistic names, descriptions, and prices
-INSERT INTO products (id, name, description, price, stock_quantity, category_id) VALUES
--- Smartphones
-('ff111111-ffff-ffff-ffff-ffffffffffff', 'iPhone 15 Pro Max', '256GB, Space Black, A17 Pro chip', 1199.99, 85, '22222222-2222-2222-2222-222222222222'),
-('ff222222-ffff-ffff-ffff-ffffffffffff', 'Samsung Galaxy S24 Ultra', '512GB, Titanium Gray, Snapdragon 8 Gen 3', 1299.99, 65, '22222222-2222-2222-2222-222222222222'),
-('ff333333-ffff-ffff-ffff-ffffffffffff', 'Google Pixel 8 Pro', '256GB, Obsidian, Google Tensor G3', 999.99, 45, '22222222-2222-2222-2222-222222222222'),
+CREATE TABLE reviews (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    product_id UUID NOT NULL,
+    rating INTEGER NOT NULL,
+    comment TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
 
--- Laptops
-('ff444444-ffff-ffff-ffff-ffffffffffff', 'MacBook Pro 16"', 'M3 Max, 32GB RAM, 1TB SSD, Space Black', 2999.99, 30, '33333333-3333-3333-3333-333333333333'),
-('ff555555-ffff-ffff-ffff-ffffffffffff', 'Dell XPS 15', 'Intel i9, 32GB RAM, 1TB SSD, RTX 4070', 2499.99, 25, '33333333-3333-3333-3333-333333333333'),
-('ff666666-ffff-ffff-ffff-ffffffffffff', 'ASUS ROG Zephyrus', 'AMD Ryzen 9, 32GB RAM, 2TB SSD, RTX 4090', 3299.99, 20, '33333333-3333-3333-3333-333333333333'),
+CREATE TABLE inventory (
+    id UUID PRIMARY KEY,
+    product_id UUID NOT NULL,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
 
--- Computer Accessories
-('ff777777-ffff-ffff-ffff-ffffffffffff', 'Logitech MX Master 3S', 'Advanced Wireless Mouse, Graphite', 99.99, 150, '44444444-4444-4444-4444-444444444444'),
-('ff888888-ffff-ffff-ffff-ffffffffffff', 'Sony WH-1000XM5', 'Wireless Noise Cancelling Headphones, Black', 399.99, 100, '44444444-4444-4444-4444-444444444444'),
+-- Insert data into users
+INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
+VALUES
+    ('b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'Alice Johnson', 'alice.johnson@email.com', 'hashed_password_1', '2025-01-01 10:00:00', '2025-01-01 10:00:00'),
+    ('f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'Bob Smith', 'bob.smith@email.com', 'hashed_password_2', '2025-01-02 11:00:00', '2025-01-02 11:00:00');
 
--- Kitchen Appliances
-('ff999999-ffff-ffff-ffff-ffffffffffff', 'Ninja Foodi 9-in-1', 'Deluxe XL Pressure Cooker and Air Fryer', 249.99, 75, '66666666-6666-6666-6666-666666666666'),
-('ffaaaaaa-ffff-ffff-ffff-ffffffffffff', 'KitchenAid Stand Mixer', 'Professional 5 Plus Series, 5 Quart', 449.99, 60, '66666666-6666-6666-6666-666666666666'),
+-- Insert data into categories
+INSERT INTO categories (id, name, description, parent_category_id)
+VALUES
+    ('baae6c2e-22ed-4975-a09c-cd7d56c1227e', 'Electronics', 'Devices like phones, laptops, etc.', NULL),
+    ('da28c876-9b5d-4d4c-9983-535a53024598', 'Home Appliances', 'Appliances for home use', NULL);
 
--- Cookware
-('ffbbbbbb-ffff-ffff-ffff-ffffffffffff', 'Le Creuset Dutch Oven', '5.5 Qt Round, Enameled Cast Iron, Flame', 369.99, 40, '77777777-7777-7777-7777-777777777777'),
-('ffcccccc-ffff-ffff-ffff-ffffffffffff', 'All-Clad D5 Set', '10-Piece Stainless Steel Cookware Set', 899.99, 25, '77777777-7777-7777-7777-777777777777');
+-- Insert data into products
+INSERT INTO products (id, name, description, price, stock_quantity, category_id, created_at, updated_at)
+VALUES
+    ('bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 'Smartphone', 'Latest model smartphone', 799.99, 100, 'baae6c2e-22ed-4975-a09c-cd7d56c1227e', '2025-01-01 12:00:00', '2025-01-01 12:00:00'),
+    ('7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 'Washing Machine', 'High efficiency washing machine', 599.99, 50, 'da28c876-9b5d-4d4c-9983-535a53024598', '2025-01-03 09:00:00', '2025-01-03 09:00:00');
 
--- Addresses with realistic street names and postal codes
-INSERT INTO addresses (id, user_id, address_line1, address_line2, city, state, postal_code, country) VALUES
-('gg111111-gggg-gggg-gggg-gggggggggggg', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '2847 Madison Ave', 'Apt 4B', 'New York', 'NY', '10128', 'USA'),
-('gg222222-gggg-gggg-gggg-gggggggggggg', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '1242 Beverly Blvd', NULL, 'Los Angeles', 'CA', '90048', 'USA'),
-('gg333333-gggg-gggg-gggg-gggggggggggg', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '742 N Michigan Ave', 'Unit 1601', 'Chicago', 'IL', '60611', 'USA'),
-('gg444444-gggg-gggg-gggg-gggggggggggg', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '3901 Lennox Ave', NULL, 'Seattle', 'WA', '98107', 'USA'),
-('gg555555-gggg-gggg-gggg-gggggggggggg', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '1585 Boylston St', 'Apt 505', 'Boston', 'MA', '02115', 'USA');
+-- Insert data into orders
+INSERT INTO orders (id, user_id, status, total_amount, shipping_address_id, created_at, updated_at)
+VALUES
+    ('a145f981-b7e9-4e2d-9a2d-16550f689928', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'pending', 799.99, 'e7d2694d-8522-4027-9fe5-fbc18c8c3a2b', '2025-01-05 14:00:00', '2025-01-05 14:00:00'),
+    ('e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'shipped', 599.99, '5c218469-4ac0-47e9-8c3f-d7e1cfdb5f8b', '2025-01-06 15:00:00', '2025-01-06 15:00:00');
 
--- Orders with realistic timestamps and statuses
-INSERT INTO orders (id, user_id, status, total_amount, shipping_address_id, created_at) VALUES
-('hh111111-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'DELIVERED', 3399.98, 'gg111111-gggg-gggg-gggg-gggggggggggg', '2024-01-10 14:23:54'),
-('hh222222-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'PROCESSING', 2499.99, 'gg222222-gggg-gggg-gggg-gggggggggggg', '2024-01-12 09:45:12'),
-('hh333333-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'SHIPPED', 1299.99, 'gg333333-gggg-gggg-gggg-gggggggggggg', '2024-01-11 16:30:00'),
-('hh444444-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'DELIVERED', 449.99, 'gg111111-gggg-gggg-gggg-gggggggggggg', '2024-01-08 11:15:22'),
-('hh555555-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'PENDING', 3699.98, 'gg444444-gggg-gggg-gggg-gggggggggggg', '2024-01-13 08:20:45');
+-- Insert data into order_items
+INSERT INTO order_items (id, order_id, product_id, quantity, unit_price)
+VALUES
+    ('1eae9983-f1b5-4bfa-a018-4cd0e8001b89', 'a145f981-b7e9-4e2d-9a2d-16550f689928', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 1, 799.99),
+    ('3b7591ad-9b70-438b-b5ba-1070a88a3be6', 'e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 1, 599.99);
 
--- Order items with realistic quantities
-INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES
--- Order 1: iPhone + Headphones
-('ii111111-iiii-iiii-iiii-iiiiiiiiiiii', 'hh111111-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ff111111-ffff-ffff-ffff-ffffffffffff', 1, 1199.99),
-('ii222222-iiii-iiii-iiii-iiiiiiiiiiii', 'hh111111-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ff888888-ffff-ffff-ffff-ffffffffffff', 1, 399.99),
+-- Insert data into payments
+INSERT INTO payments (id, user_id, order_id, amount, payment_method, status, created_at)
+VALUES
+    ('d743fe53-c1ea-4067-b40d-906c1fa25462', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'a145f981-b7e9-4e2d-9a2d-16550f689928', 799.99, 'credit card', 'completed', '2025-01-05 14:15:00'),
+    ('d21b3b29-c739-4bfe-b071-34242fe1f324', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', 599.99, 'PayPal', 'pending', '2025-01-06 15:15:00');
 
--- Order 2: Dell XPS 15
-('ii333333-iiii-iiii-iiii-iiiiiiiiiiii', 'hh222222-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ff555555-ffff-ffff-ffff-ffffffffffff', 1, 2499.99),
+-- Insert data into reviews
+INSERT INTO reviews (id, user_id, product_id, rating, comment)
+VALUES
+    ('f938e70a-dfa0-4558-a9b0-88ed94336c92', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 5, 'Great smartphone, very fast and sleek!'),
+    ('a4a56e42-799e-4599-bd13-949f9446db51', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 4, 'Good washing machine, but a bit noisy.');
 
--- Order 3: Galaxy S24 Ultra
-('ii444444-iiii-iiii-iiii-iiiiiiiiiiii', 'hh333333-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ff222222-ffff-ffff-ffff-ffffffffffff', 1, 1299.99),
-
--- Order 4: KitchenAid Mixer
-('ii555555-iiii-iiii-iiii-iiiiiiiiiiii', 'hh444444-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ffaaaaaa-ffff-ffff-ffff-ffffffffffff', 1, 449.99),
-
--- Order 5: MacBook Pro + Mouse
-('ii666666-iiii-iiii-iiii-iiiiiiiiiiii', 'hh555555-hhhh-hhhh-hhhh-hhhhhhhhhhhh', 'ff444444-ffff-ffff-ffff-ffffffffffff', 1,449.99);
+-- Insert data into inventory
+INSERT INTO inventory (id, product_id, quantity)
+VALUES
+    ('e9142592-1be2-4f9c-a34c-17f9c5ff3009', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 100),
+    ('3b5ad61d-bc2c-4060-b6a0-c24b15602c95', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 50);
