@@ -1,4 +1,4 @@
-# SQL Query Generator Using NLP
+# NL-2-SQL Using RAG & LLM
 
 This application is a Streamlit-based tool that utilizes NLP and Neo4j to generate SQL queries dynamically. It fetches the schema from a Neo4j database, processes user queries using Sentence Transformers, and generates SQL queries via the ArliAI API.
 
