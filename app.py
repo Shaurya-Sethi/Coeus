@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import json
 import requests
+import re
 
 # Neo4j Handler
 class Neo4jHandler:
@@ -196,8 +197,76 @@ def prune_non_relationship_columns(user_query_embedding, schema, relationships, 
 
     return pruned_schema
 
+class ValidationAgent:
+    def __init__(self, schema):
+        self.schema = schema
+
+    def parse_query(self, query):
+        """
+        Parse the SQL query to identify tables and columns.
+        """
+        tables = re.findall(r'FROM\s+(\w+)', query, re.IGNORECASE)
+        columns = re.findall(r'SELECT\s+(.*?)\s+FROM', query, re.IGNORECASE)
+        columns = [col.strip() for col in columns[0].split(",")] if columns else []
+        return tables, columns
+
+    def validate_schema(self, tables, columns):
+        """
+        Validate that the tables and columns in the query exist in the schema.
+        """
+        errors = []
+        for table in tables:
+            if table not in self.schema:
+                errors.append(f"Table '{table}' does not exist in the schema.")
+            else:
+                for column in columns:
+                    if column not in self.schema[table]["columns"]:
+                        errors.append(f"Column '{column}' does not exist in table '{table}'.")
+        return errors
+
+    def correct_query(self, api_key, query, errors):
+        """
+        Send the erroneous SQL query and errors to the LLM for correction.
+        """
+        prompt = f"""
+        The following SQL query has errors:
+
+        Query:
+        {query}
+
+        Errors:
+        {errors}
+
+        Please correct the SQL query while ensuring it adheres to the schema.
+        """
+
+        payload = json.dumps({
+            "model": "Mistral-Nemo-12B-Instruct-2407",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant for generating and correcting SQL queries. give only sql query, do not explain"},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "max_tokens": 1024,
+            "n": 1
+        })
+
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f"Bearer {api_key}"
+        }
+
+        response = requests.post("https://api.arliai.com/v1/chat/completions", headers=headers, data=payload)
+
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        else:
+            raise Exception(f"ArliAI API call failed: {response.text}")
+
+
 def main():
-    st.title("SQL Query Generator Using NLP")
+    st.title("SQL Query Generator Using NLP with Validation")
 
     # Inputs
     st.sidebar.header("Configuration")
@@ -239,6 +308,9 @@ def main():
     # Initialize the Neo4j handler again for fetching relationships after pruning
     neo4j_handler = Neo4jHandler(uri=neo4j_uri, user=neo4j_user, password=neo4j_password, database=database_name)
 
+    # Initialize Validation Agent
+    validation_agent = ValidationAgent(schema)
+
     # Process Query
     if st.button("Generate SQL Query"):
         st.write("Processing your query...")
@@ -262,6 +334,24 @@ def main():
             generated_sql = generate_sql_arliAI(arliAI_api_key, user_query, pruned_schema)
             st.subheader("Generated SQL Query")
             st.code(generated_sql, language="sql")
+
+            # Validate the generated SQL query
+            tables, columns = validation_agent.parse_query(generated_sql)
+            errors = validation_agent.validate_schema(tables, columns)
+
+            if errors:
+                st.error("Validation Errors Found:")
+                for error in errors:
+                    st.error(error)
+
+                # Send the erroneous query and errors to the LLM for correction
+                corrected_query = validation_agent.correct_query(arliAI_api_key, generated_sql, errors)
+
+                st.subheader("Corrected SQL Query")
+                st.code(corrected_query, language="sql")
+            else:
+                st.success("Generated SQL query is valid and aligns with the schema.")
+
         
         except Exception as e:
             st.error(f"An error occurred: {e}")

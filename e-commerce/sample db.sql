@@ -1,4 +1,4 @@
--- Create the tables
+-- Create Users Table
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -8,118 +8,165 @@ CREATE TABLE users (
     updated_at TIMESTAMP NOT NULL
 );
 
-CREATE TABLE orders (
+-- Create Addresses Table
+CREATE TABLE addresses (
     id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    total_amount DECIMAL(10, 2) NOT NULL,
-    shipping_address_id UUID NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    user_id UUID REFERENCES users(id),
+    address_line1 VARCHAR(255) NOT NULL,
+    address_line2 VARCHAR(255),
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    country VARCHAR(100) NOT NULL
 );
 
+-- Create Categories Table
+CREATE TABLE categories (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+-- Create Products Table
 CREATE TABLE products (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(10, 2) NOT NULL,
-    stock_quantity INTEGER NOT NULL,
-    category_id UUID NOT NULL,
+    stock_quantity INT NOT NULL,
+    category_id UUID REFERENCES categories(id),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL
 );
 
+-- Create Orders Table
+CREATE TABLE orders (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    status VARCHAR(50) NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    shipping_address_id UUID REFERENCES addresses(id),
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+
+-- Create Order Items Table
 CREATE TABLE order_items (
     id UUID PRIMARY KEY,
-    order_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    quantity INTEGER NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    order_id UUID REFERENCES orders(id),
+    product_id UUID REFERENCES products(id),
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL
 );
 
-CREATE TABLE categories (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    parent_category_id UUID
-);
-
-CREATE TABLE payments (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    order_id UUID NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    payment_method VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (order_id) REFERENCES orders(id)
-);
-
-CREATE TABLE reviews (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    rating INTEGER NOT NULL,
-    comment TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
-
+-- Create Inventory Table
 CREATE TABLE inventory (
     id UUID PRIMARY KEY,
-    product_id UUID NOT NULL,
-    quantity INTEGER NOT NULL,
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    product_id UUID REFERENCES products(id),
+    quantity INT NOT NULL,
+    restocked_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
 );
 
--- Insert data into users
-INSERT INTO users (id, name, email, password_hash, created_at, updated_at)
-VALUES
-    ('b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'Alice Johnson', 'alice.johnson@email.com', 'hashed_password_1', '2025-01-01 10:00:00', '2025-01-01 10:00:00'),
-    ('f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'Bob Smith', 'bob.smith@email.com', 'hashed_password_2', '2025-01-02 11:00:00', '2025-01-02 11:00:00');
+-- Create Reviews Table
+CREATE TABLE reviews (
+    id UUID PRIMARY KEY,
+    product_id UUID REFERENCES products(id),
+    user_id UUID REFERENCES users(id),
+    rating INT CHECK(rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
 
--- Insert data into categories
-INSERT INTO categories (id, name, description, parent_category_id)
-VALUES
-    ('baae6c2e-22ed-4975-a09c-cd7d56c1227e', 'Electronics', 'Devices like phones, laptops, etc.', NULL),
-    ('da28c876-9b5d-4d4c-9983-535a53024598', 'Home Appliances', 'Appliances for home use', NULL);
+-- Create Coupons Table
+CREATE TABLE coupons (
+    id UUID PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    discount DECIMAL(5, 2) NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
 
--- Insert data into products
-INSERT INTO products (id, name, description, price, stock_quantity, category_id, created_at, updated_at)
-VALUES
-    ('bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 'Smartphone', 'Latest model smartphone', 799.99, 100, 'baae6c2e-22ed-4975-a09c-cd7d56c1227e', '2025-01-01 12:00:00', '2025-01-01 12:00:00'),
-    ('7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 'Washing Machine', 'High efficiency washing machine', 599.99, 50, 'da28c876-9b5d-4d4c-9983-535a53024598', '2025-01-03 09:00:00', '2025-01-03 09:00:00');
+-- Create Shipments Table
+CREATE TABLE shipments (
+    id UUID PRIMARY KEY,
+    order_id UUID REFERENCES orders(id),
+    status VARCHAR(50) NOT NULL,
+    carrier VARCHAR(100),
+    tracking_number VARCHAR(100),
+    shipped_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
 
--- Insert data into orders
-INSERT INTO orders (id, user_id, status, total_amount, shipping_address_id, created_at, updated_at)
-VALUES
-    ('a145f981-b7e9-4e2d-9a2d-16550f689928', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'pending', 799.99, 'e7d2694d-8522-4027-9fe5-fbc18c8c3a2b', '2025-01-05 14:00:00', '2025-01-05 14:00:00'),
-    ('e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'shipped', 599.99, '5c218469-4ac0-47e9-8c3f-d7e1cfdb5f8b', '2025-01-06 15:00:00', '2025-01-06 15:00:00');
+-- Insert Users (Sample Entries)
+INSERT INTO users (id, name, email, password_hash, created_at, updated_at) VALUES
+    ('550e8400-e29b-41d4-a716-446655440001', 'John Doe', 'johndoe@example.com', 'hashedpassword123', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('550e8400-e29b-41d4-a716-446655440002', 'Jane Smith', 'janesmith@example.com', 'hashedpassword456', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('550e8400-e29b-41d4-a716-446655440003', 'Alice Johnson', 'alicejohnson@example.com', 'hashedpassword789', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('550e8400-e29b-41d4-a716-446655440004', 'Bob Lee', 'boblee@example.com', 'hashedpassword987', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('550e8400-e29b-41d4-a716-446655440005', 'Charlie Brown', 'charliebrown@example.com', 'hashedpassword123', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- Insert data into order_items
-INSERT INTO order_items (id, order_id, product_id, quantity, unit_price)
-VALUES
-    ('1eae9983-f1b5-4bfa-a018-4cd0e8001b89', 'a145f981-b7e9-4e2d-9a2d-16550f689928', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 1, 799.99),
-    ('3b7591ad-9b70-438b-b5ba-1070a88a3be6', 'e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 1, 599.99);
+-- Insert Addresses (Sample Entries)
+INSERT INTO addresses (id, user_id, address_line1, city, state, postal_code, country) VALUES
+    ('650e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', '123 Main St', 'New York', 'NY', '10001', 'USA'),
+    ('650e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440002', '456 Elm St', 'Los Angeles', 'CA', '90001', 'USA'),
+    ('650e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440003', '789 Oak St', 'Chicago', 'IL', '60001', 'USA'),
+    ('650e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440004', '321 Pine St', 'Dallas', 'TX', '75001', 'USA'),
+    ('650e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440005', '654 Birch St', 'San Francisco', 'CA', '94101', 'USA');
 
--- Insert data into payments
-INSERT INTO payments (id, user_id, order_id, amount, payment_method, status, created_at)
-VALUES
-    ('d743fe53-c1ea-4067-b40d-906c1fa25462', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'a145f981-b7e9-4e2d-9a2d-16550f689928', 799.99, 'credit card', 'completed', '2025-01-05 14:15:00'),
-    ('d21b3b29-c739-4bfe-b071-34242fe1f324', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', 'e59736f2-2423-4ecf-87b0-8b1f5d1e6f10', 599.99, 'PayPal', 'pending', '2025-01-06 15:15:00');
+-- Insert Categories (Sample Entries)
+INSERT INTO categories (id, name) VALUES
+    ('750e8400-e29b-41d4-a716-446655440001', 'Electronics'),
+    ('750e8400-e29b-41d4-a716-446655440002', 'Clothing'),
+    ('750e8400-e29b-41d4-a716-446655440003', 'Home Appliances'),
+    ('750e8400-e29b-41d4-a716-446655440004', 'Beauty & Personal Care'),
+    ('750e8400-e29b-41d4-a716-446655440005', 'Sports & Outdoors');
 
--- Insert data into reviews
-INSERT INTO reviews (id, user_id, product_id, rating, comment)
-VALUES
-    ('f938e70a-dfa0-4558-a9b0-88ed94336c92', 'b1a3c5d7-8e6f-4d76-a85a-e84db62a9e7a', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 5, 'Great smartphone, very fast and sleek!'),
-    ('a4a56e42-799e-4599-bd13-949f9446db51', 'f3d76c1a-1b63-4a6b-9a0e-fc51720e1b12', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 4, 'Good washing machine, but a bit noisy.');
+-- Insert Products (Sample Entries)
+INSERT INTO products (id, name, description, price, stock_quantity, category_id, created_at, updated_at) VALUES
+    ('850e8400-e29b-41d4-a716-446655440001', 'Smartphone', 'Latest model smartphone with high-resolution camera', 699.99, 50, '750e8400-e29b-41d4-a716-446655440001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('850e8400-e29b-41d4-a716-446655440002', 'Jeans', 'Comfortable denim jeans in various sizes', 39.99, 100, '750e8400-e29b-41d4-a716-446655440002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('850e8400-e29b-41d4-a716-446655440003', 'Air Conditioner', 'Energy-efficient AC with remote control', 499.99, 30, '750e8400-e29b-41d4-a716-446655440003', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('850e8400-e29b-41d4-a716-446655440004', 'Skincare Cream', 'Moisturizing cream for dry skin', 19.99, 150, '750e8400-e29b-41d4-a716-446655440004', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('850e8400-e29b-41d4-a716-446655440005', 'Camping Tent', 'Waterproof tent for outdoor use', 89.99, 80, '750e8400-e29b-41d4-a716-446655440005', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- Insert data into inventory
-INSERT INTO inventory (id, product_id, quantity)
-VALUES
-    ('e9142592-1be2-4f9c-a34c-17f9c5ff3009', 'bc7e29be-8fd2-4e7f-87a4-4c7c3a90a53f', 100),
-    ('3b5ad61d-bc2c-4060-b6a0-c24b15602c95', '7b9e8c92-0971-47c4-bdd3-e5162c8a7a39', 50);
+-- Insert Orders (Sample Entries)
+INSERT INTO orders (id, user_id, status, total_amount, shipping_address_id, created_at, updated_at) VALUES
+    ('950e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440001', 'Shipped', 799.98, '650e8400-e29b-41d4-a716-446655440001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('950e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440002', 'Pending', 1199.97, '650e8400-e29b-41d4-a716-446655440002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('950e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440003', 'Delivered', 2199.95, '650e8400-e29b-41d4-a716-446655440003', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Insert Order Items (Sample Entries)
+INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES
+    ('a50e8400-e29b-41d4-a716-446655440001', '950e8400-e29b-41d4-a716-446655440001', '850e8400-e29b-41d4-a716-446655440001', 1, 699.99),
+    ('a50e8400-e29b-41d4-a716-446655440002', '950e8400-e29b-41d4-a716-446655440002', '850e8400-e29b-41d4-a716-446655440002', 3, 39.99),
+    ('a50e8400-e29b-41d4-a716-446655440003', '950e8400-e29b-41d4-a716-446655440003', '850e8400-e29b-41d4-a716-446655440003', 2, 499.99);
+
+-- Insert Inventory (Sample Entries)
+INSERT INTO inventory (id, product_id, quantity, restocked_at, created_at, updated_at) VALUES
+    ('b50e8400-e29b-41d4-a716-446655440001', '850e8400-e29b-41d4-a716-446655440001', 50, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('b50e8400-e29b-41d4-a716-446655440002', '850e8400-e29b-41d4-a716-446655440002', 200, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('b50e8400-e29b-41d4-a716-446655440003', '850e8400-e29b-41d4-a716-446655440003', 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Insert Reviews (Sample Entries)
+INSERT INTO reviews (id, product_id, user_id, rating, comment, created_at, updated_at) VALUES
+    ('c50e8400-e29b-41d4-a716-446655440001', '850e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', 4, 'Good smartphone, fast performance', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('c50e8400-e29b-41d4-a716-446655440002', '850e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003', 5, 'Comfortable jeans! Great fit', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('c50e8400-e29b-41d4-a716-446655440003', '850e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440004', 3, 'The AC works fine but noisy', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Insert Coupons (Sample Entries)
+INSERT INTO coupons (id, code, discount, start_date, end_date, created_at, updated_at) VALUES
+    ('d50e8400-e29b-41d4-a716-446655440001', 'SUMMER20', 20.00, '2025-06-01', '2025-08-31', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d50e8400-e29b-41d4-a716-446655440002', 'FALL15', 15.00, '2025-09-01', '2025-11-30', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d50e8400-e29b-41d4-a716-446655440003', 'WINTER25', 25.00, '2025-12-01', '2025-12-31', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Insert Shipments (Sample Entries)
+INSERT INTO shipments (id, order_id, status, carrier, tracking_number, shipped_at, delivered_at, created_at, updated_at) VALUES
+    ('e50e8400-e29b-41d4-a716-446655440001', '950e8400-e29b-41d4-a716-446655440001', 'Shipped', 'UPS', '9876543210', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('e50e8400-e29b-41d4-a716-446655440002', '950e8400-e29b-41d4-a716-446655440002', 'Delivered', 'FedEx', '1122334455', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('e50e8400-e29b-41d4-a716-446655440003', '950e8400-e29b-41d4-a716-446655440003', 'Pending', 'DHL', '2233445566', CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
