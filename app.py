@@ -1,3 +1,11 @@
+"""Streamlit app for generating and validating SQL queries from natural language.
+
+The application connects to a Neo4j database to obtain table schemas, generates
+embeddings using SentenceTransformer, and leverages ArliAI to create SQL queries
+based on user input. Generated queries are validated against the schema and can
+optionally be corrected through the validation agent.
+"""
+
 import streamlit as st
 from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
@@ -16,10 +24,11 @@ class Neo4jHandler:
         self.driver.close()
 
     def fetch_table_schema(self):
-        query = """
-        MATCH (t:Table)<-[:BELONGS_TO]-(c:Column)
-        RETURN t.name AS table, t.description AS table_description, c.name AS column, c.description AS column_description
-        """
+        query = (
+            "MATCH (t:Table)<-[:BELONGS_TO]-(c:Column)\n"
+            "RETURN t.name AS table, t.description AS table_description, "
+            "c.name AS column, c.description AS column_description"
+        )
         with self.driver.session(database=self.database) as session:
             result = session.run(query)
             schema = {}
@@ -65,7 +74,7 @@ def fetch_embedding_locally(text):
     """
     if not isinstance(text, str) or not text.strip():
         raise ValueError(f"Input must be a non-empty string. Received: {text}")
-    
+
     # Generate embedding
     embedding = model.encode([text])[0]
     return embedding.tolist()
@@ -79,12 +88,18 @@ def generate_schema_embeddings_locally(schema):
     for table, data in schema.items():
         # Create context that includes both the table and column descriptions
         table_context = f"Table: {table}, Description: {data['description']}, Columns: "
-        column_contexts = [f"{column['name']} (Description: {column['description']})" for column in data["columns"]]
+        column_contexts = [
+            f"{column['name']} (Description: {column['description']})"
+            for column in data["columns"]
+        ]
         full_context = table_context + ", ".join(column_contexts)
-        
+
         try:
             embedding = fetch_embedding_locally(full_context)
-            schema_embeddings[table] = {"embedding": embedding, "columns": [column["name"] for column in data["columns"]] }
+            schema_embeddings[table] = {
+                "embedding": embedding,
+                "columns": [col["name"] for col in data["columns"]],
+            }
         except Exception as e:
             print(f"Failed to generate embedding for {table}. Error: {e}")
             raise
@@ -107,7 +122,10 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
     Generate SQL query using ArliAI API.
     """
     schema_context = "\n".join(
-        [f"- Table: {table} (Columns: {', '.join(columns)})" for table, columns in pruned_schema.items()]
+        [
+            f"- Table: {table} (Columns: {', '.join(columns)})"
+            for table, columns in pruned_schema.items()
+        ]
     )
     prompt = f"""
     Use the provided schema to generate a valid SQL query.
@@ -122,7 +140,10 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
     payload = json.dumps({
         "model": "Mistral-Nemo-12B-Instruct-2407",
         "messages": [
-            {"role": "system", "content": "You are a helpful assistant for generating SQL queries."},
+            {
+                "role": "system",
+                "content": "You are a helpful assistant for generating SQL queries.",
+            },
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.7,
@@ -136,7 +157,11 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
         'Authorization': f"Bearer {api_key}"
     }
 
-    response = requests.post("https://api.arliai.com/v1/chat/completions", headers=headers, data=payload)
+    response = requests.post(
+        "https://api.arliai.com/v1/chat/completions",
+        headers=headers,
+        data=payload,
+    )
 
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"].strip()
@@ -149,7 +174,7 @@ def identify_relationship_columns(schema, relationships):
     Identify relationship columns based on relationships between tables.
     """
     relationship_columns = set()  # Use a set to avoid duplicates
-    
+
     # For each relationship, find the columns that define the relationship
     for from_table, related_tables in relationships.items():
         for to_table, rels in related_tables.items():
@@ -159,7 +184,12 @@ def identify_relationship_columns(schema, relationships):
     return relationship_columns
 
 @st.cache_data
-def prune_non_relationship_columns(user_query_embedding, schema, relationships, similarity_threshold):
+def prune_non_relationship_columns(
+    user_query_embedding,
+    schema,
+    relationships,
+    similarity_threshold,
+):
     """
     Prune non-relationship columns based on similarity to the user query embedding.
     """
@@ -174,18 +204,24 @@ def prune_non_relationship_columns(user_query_embedding, schema, relationships, 
 
         for column in table_data["columns"]:
             column_name = column["name"]
-            
+
             # If the column is part of relationships, keep it
             if column_name in relationship_columns:
                 relevant_columns.append(column_name)
                 unique_columns.add(column_name)  # Mark as unique
             else:
                 # Check similarity for non-relationship columns
-                column_context = f"Table: {table}, Column: {column_name}, Description: {table_data['description']}"
+                column_context = (
+                    f"Table: {table}, Column: {column_name}, "
+                    f"Description: {table_data['description']}"
+                )
                 column_embedding = fetch_embedding_locally(column_context)
-                column_similarity = cosine_similarity([user_query_embedding], [column_embedding])[0][0]
+                column_similarity = cosine_similarity(
+                    [user_query_embedding], [column_embedding]
+                )[0][0]
 
-                if column_similarity > similarity_threshold:  # Only keep if similarity is above threshold
+                # Only keep if similarity is above threshold
+                if column_similarity > similarity_threshold:
                     # Only add unique columns
                     if column_name not in unique_columns:
                         relevant_columns.append(column_name)
@@ -204,6 +240,9 @@ class ValidationAgent:
     def parse_query(self, query):
         """
         Parse the SQL query to identify tables and columns.
+
+        This simple regex-based approach works for basic queries but will not
+        handle nested statements or advanced SQL syntax.
         """
         tables = re.findall(r'FROM\s+(\w+)', query, re.IGNORECASE)
         columns = re.findall(r'SELECT\s+(.*?)\s+FROM', query, re.IGNORECASE)
@@ -240,24 +279,37 @@ class ValidationAgent:
         Please correct the SQL query while ensuring it adheres to the schema.
         """
 
-        payload = json.dumps({
-            "model": "Mistral-Nemo-12B-Instruct-2407",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant for generating and correcting SQL queries. give only sql query, do not explain"},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "max_tokens": 1024,
-            "n": 1
-        })
+        payload = json.dumps(
+            {
+                "model": "Mistral-Nemo-12B-Instruct-2407",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful assistant for generating and "
+                            "correcting SQL queries. give only sql query, do"
+                            " not explain"
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "max_tokens": 1024,
+                "n": 1,
+            }
+        )
 
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f"Bearer {api_key}"
         }
 
-        response = requests.post("https://api.arliai.com/v1/chat/completions", headers=headers, data=payload)
+        response = requests.post(
+            "https://api.arliai.com/v1/chat/completions",
+            headers=headers,
+            data=payload,
+        )
 
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"].strip()
@@ -286,14 +338,22 @@ def main():
         help="Adjust the similarity threshold for pruning columns"
     )
 
-    user_query = st.text_area("User Query", "List all users, their orders, and the products in those orders.")
+    user_query = st.text_area(
+        "User Query",
+        "List all users, their orders, and the products in those orders."
+    )
 
     @st.cache_resource
     def initialize_schema_and_embeddings():
         """
         Fetch schema from Neo4j and generate embeddings.
         """
-        neo4j_handler = Neo4jHandler(uri=neo4j_uri, user=neo4j_user, password=neo4j_password, database=database_name)
+        neo4j_handler = Neo4jHandler(
+            uri=neo4j_uri,
+            user=neo4j_user,
+            password=neo4j_password,
+            database=database_name,
+        )
         schema = neo4j_handler.fetch_table_schema()
         neo4j_handler.close()
         schema_embeddings = generate_schema_embeddings_locally(schema)
@@ -306,7 +366,12 @@ def main():
     st.json(schema)
 
     # Initialize the Neo4j handler again for fetching relationships after pruning
-    neo4j_handler = Neo4jHandler(uri=neo4j_uri, user=neo4j_user, password=neo4j_password, database=database_name)
+    neo4j_handler = Neo4jHandler(
+        uri=neo4j_uri,
+        user=neo4j_user,
+        password=neo4j_password,
+        database=database_name,
+    )
 
     # Initialize Validation Agent
     validation_agent = ValidationAgent(schema)
@@ -325,13 +390,22 @@ def main():
             relationships = neo4j_handler.fetch_relationships(relevant_tables)
 
             # Step 3: Prune columns based on relationships and query relevance
-            pruned_schema = prune_non_relationship_columns(user_query_embedding, schema, relationships, similarity_threshold)
+            pruned_schema = prune_non_relationship_columns(
+                user_query_embedding,
+                schema,
+                relationships,
+                similarity_threshold,
+            )
 
             st.subheader("Pruned Schema")
             st.json(pruned_schema)
 
             # Generate SQL query based on pruned schema
-            generated_sql = generate_sql_arliAI(arliAI_api_key, user_query, pruned_schema)
+            generated_sql = generate_sql_arliAI(
+                arliAI_api_key,
+                user_query,
+                pruned_schema,
+            )
             st.subheader("Generated SQL Query")
             st.code(generated_sql, language="sql")
 
@@ -345,14 +419,18 @@ def main():
                     st.error(error)
 
                 # Send the erroneous query and errors to the LLM for correction
-                corrected_query = validation_agent.correct_query(arliAI_api_key, generated_sql, errors)
+                corrected_query = validation_agent.correct_query(
+                    arliAI_api_key,
+                    generated_sql,
+                    errors,
+                )
 
                 st.subheader("Corrected SQL Query")
                 st.code(corrected_query, language="sql")
             else:
                 st.success("Generated SQL query is valid and aligns with the schema.")
 
-        
+
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
