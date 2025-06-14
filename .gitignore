@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+# Distribution / packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+# Virtualenv
+.env
+# PyTest
+.pytest_cache/
+# Mypy
+.mypy_cache/
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
