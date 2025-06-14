@@ -15,7 +15,7 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
 * **Relationship-Aware Filtering**: Ensures key columns related to relationships are retained.
 * **SQL Query Generation**: Uses ArliAI API to generate SQL queries based on the refined schema.
 * **Configurable Similarity Threshold**: Allows fine-tuning relevance detection for query context.
-* **Secure Credentials Input**: Uses password fields for sensitive information in Streamlit UI.
+* **Environment-Based Secrets**: Credentials are loaded from `.env` or `st.secrets` with a UI fallback for local development.
 
 ## Setup
 
@@ -39,7 +39,18 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
    pip install -r requirements.txt
    ```
 
-4. **Run the app**
+4. **Create a `.env` file**
+   Define the following variables (or use `st.secrets` in a deployed environment):
+
+   ```dotenv
+   NEO4J_URI=bolt://localhost:7687
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=your_password
+   NEO4J_DATABASE=e-commerce
+   ARLIAI_API_KEY=your_api_key
+   ```
+
+5. **Run the app**
 
    ```sh
    streamlit run app.py
@@ -55,12 +66,16 @@ streamlit run app.py
 
 ### Configuring Inputs
 
-* **Neo4j URI**: The connection string for Neo4j (e.g., `bolt://localhost:7687`).
-* **Neo4j User & Password**: Authentication credentials.
-* **Database Name**: The Neo4j database containing the schema.
-* **ArliAI API Key**: Required to generate SQL queries.
-* **Similarity Threshold**: Adjusts the sensitivity for schema relevance detection.
-* **User Query**: Natural language input describing the desired SQL query.
+Set the required variables in a `.env` file or `st.secrets` as shown above. If a
+variable is missing, the app will display a text input in the sidebar so you can
+provide it manually during local development.
+
+* **Neo4j URI** – connection string for Neo4j (e.g., `bolt://localhost:7687`).
+* **Neo4j User & Password** – authentication credentials.
+* **Database Name** – the Neo4j database containing the schema.
+* **ArliAI API Key** – required to generate SQL queries.
+* **Similarity Threshold** – adjusts the sensitivity for schema relevance detection.
+* **User Query** – natural language input describing the desired SQL query.
 
 ### Workflow
 
