@@ -1,6 +1,11 @@
-# NL-2-SQL Using RAG & LLM
+# Coeus: NL-2-SQL Using RAG & LLM
 
 This application is a Streamlit-based tool that utilizes NLP and Neo4j to generate SQL queries dynamically. It fetches the schema from a Neo4j database, processes user queries using Sentence Transformers, and generates SQL queries via the ArliAI API.
+
+## Directory Overview
+
+- `e-commerce/` – Sample SQL schema and Cypher scripts for an e-commerce database. These files can be imported into Neo4j or a SQL engine to experiment with the query generator.
+- `uber like/` – Cypher scripts describing a ride‑sharing schema similar to an Uber application. Useful for testing with a different domain.
 
 ## Features
 - **Fetch Schema from Neo4j**: Extracts table and column descriptions along with relationships.
@@ -11,31 +16,28 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
 - **Configurable Similarity Threshold**: Allows fine-tuning relevance detection for query context.
 - **Secure Credentials Input**: Uses password fields for sensitive information in Streamlit UI.
 
-## Installation
+## Setup
 
-### Prerequisites
-Ensure you have the following installed:
-- Python 3.8+
-- Neo4j (Running instance with a valid database schema)
-- Virtual environment (optional but recommended)
+1. **Install prerequisites**
+   - Python 3.8 or newer
+   - A running Neo4j instance
+   - (Optional) Create a virtual environment
 
-### Clone the Repository
-```sh
-$ git clone https://github.com/your-repo/sql-query-generator.git
-$ cd sql-query-generator
-```
+2. **Clone the repository**
+   ```sh
+   git clone https://github.com/your-username/Coeus.git
+   cd Coeus
+   ```
 
-### Create a Virtual Environment (Optional but Recommended)
-```sh
-$ python -m venv venv
-$ source venv/bin/activate  # On macOS/Linux
-$ venv\Scripts\activate    # On Windows
-```
+3. **Install dependencies**
+   ```sh
+   pip install -r requirements.txt
+   ```
 
-### Install Dependencies
-```sh
-$ pip install -r requirements.txt
-```
+4. **Run the app**
+   ```sh
+   streamlit run app.py
+   ```
 
 ## Usage
 
@@ -60,6 +62,23 @@ $ streamlit run app.py
 5. Relationship-aware pruning refines column selection.
 6. A SQL query is generated via the ArliAI API.
 7. The final query is displayed in the Streamlit UI.
+
+### UI Overview
+```
++--------------------------------------------+
+| SQL Query Generator Using NLP              |
++--------------------------------------------+
+| Sidebar                                    |
+|  - Neo4j settings                          |
+|  - API key                                 |
+|  - Similarity slider                       |
++--------------------------------------------+
+| Main Area                                  |
+|  - User query input                        |
+|  - Generate button                         |
+|  - Schema and SQL results                  |
++--------------------------------------------+
+```
 
 ## Functionality Overview
 
@@ -109,6 +128,12 @@ JOIN products ON order_products.product_id = products.id;
 - **API Failure**: Check if the ArliAI API key is valid and the service is online.
 - **Incorrect SQL Queries**: Adjust the similarity threshold or refine column selection.
 
+## Contributing
+
+Contributions are welcome! Please fork the repository and open a pull request with your changes.
+By contributing you agree that your code will be released under the terms of the
+[MIT License](LICENSE).
+
 ## License
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
 
