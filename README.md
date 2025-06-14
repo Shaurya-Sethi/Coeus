@@ -28,7 +28,7 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
 2. **Clone the repository**
 
    ```sh
-   git clone https://github.com/your-username/Coeus.git
+   git clone https://github.com/Abhay-Sastha-S/Coeus.git
    cd Coeus
    ```
 
