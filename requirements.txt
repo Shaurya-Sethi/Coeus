@@ -3,3 +3,4 @@ neo4j
 sentence-transformers
 scikit-learn
 requests
+sqlglot>=23.0.0

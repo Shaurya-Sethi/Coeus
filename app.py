@@ -307,16 +307,78 @@ class ValidationAgent:
         self.schema = schema
 
     def parse_query(self, query):
-        """
-        Parse the SQL query to identify tables and columns.
+        """Parse the SQL query to identify tables and columns.
 
-        This simple regex-based approach works for basic queries but will not
-        handle nested statements or advanced SQL syntax.
+        The method attempts to use ``sqlglot`` for robust parsing which works
+        across multiple SQL dialects.  If ``sqlglot`` is unavailable or parsing
+        fails, the original regex based extraction is used as a fallback for
+        backwards compatibility.
+
+        Args:
+            query (str): The SQL query string.
+
+        Returns:
+            tuple[list[str], list[str]]: A tuple containing a list of table names
+            and a list of selected columns (duplicates removed while preserving
+            order).
         """
-        tables = re.findall(r'FROM\s+(\w+)', query, re.IGNORECASE)
-        columns = re.findall(r'SELECT\s+(.*?)\s+FROM', query, re.IGNORECASE)
-        columns = [col.strip() for col in columns[0].split(",")] if columns else []
-        return tables, columns
+
+        try:  # Attempt to parse with sqlglot if available
+            import sqlglot
+            from sqlglot import exp
+
+            expression = sqlglot.parse_one(query, error_level="ignore")
+            if not expression:
+                raise ValueError("Parsing returned no expression")
+
+            tables: list[str] = []
+            for table in expression.find_all(exp.Table):
+                name = table.name
+                if name and name not in tables:
+                    tables.append(name)
+
+            columns: list[str] = []
+            for col in expression.find_all(exp.Column):
+                if isinstance(col.this, exp.Star):
+                    if col.table:
+                        col_name = f"{col.table}.*"
+                    else:
+                        col_name = "*"
+                else:
+                    col_name = col.alias_or_name
+                if col_name not in columns:
+                    columns.append(col_name)
+
+            return tables, columns
+
+        except Exception:
+            # Fallback to the original regex-based logic for environments where
+            # sqlglot is not installed.  This handles only simple queries.
+            tables = re.findall(r"FROM\s+([\w\"`\[\]]+)", query, re.IGNORECASE)
+            tables += re.findall(r"JOIN\s+([\w\"`\[\]]+)", query, re.IGNORECASE)
+            tables = [t.strip("\"`[]") for t in tables]
+
+            column_match = re.search(
+                r"SELECT\s+(.*?)\s+FROM",
+                query,
+                re.IGNORECASE | re.DOTALL,
+            )
+            columns = []
+            if column_match:
+                raw_cols = column_match.group(1)
+                columns = [c.strip().strip("\"`[]") for c in raw_cols.split(",")]
+
+            # Remove duplicates while preserving order
+            def _dedupe(items):
+                seen = set()
+                result = []
+                for item in items:
+                    if item not in seen:
+                        seen.add(item)
+                        result.append(item)
+                return result
+
+            return _dedupe(tables), _dedupe(columns)
 
     def validate_schema(self, tables, columns):
         """
@@ -328,8 +390,13 @@ class ValidationAgent:
                 errors.append(f"Table '{table}' does not exist in the schema.")
             else:
                 for column in columns:
+                    # Skip wildcard columns which implicitly reference all columns
+                    if column in {"*", f"{table}.*"}:
+                        continue
                     if column not in self.schema[table]["columns"]:
-                        errors.append(f"Column '{column}' does not exist in table '{table}'.")
+                        errors.append(
+                            f"Column '{column}' does not exist in table '{table}'."
+                        )
         return errors
 
     def correct_query(self, api_key, query, errors):
