@@ -124,7 +124,8 @@ def find_relevant_schema(
             ``top_k_tables``.
 
     Returns:
-        dict: Mapping of table names to their list of columns.
+        dict: Mapping of table names to a dict containing columns and similarity
+        scores.
     """
 
     table_similarities = []
@@ -133,16 +134,18 @@ def find_relevant_schema(
         table_similarities.append((table, similarity))
 
     if similarity_threshold is not None:
-        return {
-            table: schema_embeddings[table]["columns"]
-            for table, sim in table_similarities
-            if sim > similarity_threshold
-        }
+        selected = [
+            (table, sim) for table, sim in table_similarities if sim > similarity_threshold
+        ]
+    else:
+        # Fallback to Top-K selection
+        table_similarities.sort(key=lambda x: x[1], reverse=True)
+        selected = table_similarities[:top_k_tables]
 
-    # Fallback to Top-K selection
-    table_similarities.sort(key=lambda x: x[1], reverse=True)
-    selected = table_similarities[:top_k_tables]
-    return {table: schema_embeddings[table]["columns"] for table, _ in selected}
+    return {
+        table: {"columns": schema_embeddings[table]["columns"], "score": sim}
+        for table, sim in selected
+    }
 
 def generate_sql_arliAI(api_key, user_query, pruned_schema):
     """
@@ -217,6 +220,7 @@ def prune_non_relationship_columns(
     relationships,
     top_k_cols=5,
     similarity_threshold=None,
+    table_scores=None,
 ):
     """Prune columns by keeping relationship columns and Top-K most relevant.
 
@@ -230,10 +234,14 @@ def prune_non_relationship_columns(
             similarity above this value instead of using ``top_k_cols``.
 
     Returns:
-        dict: Mapping of table names to a list of retained column names.
+        tuple:
+            dict: Mapping of table names to a list of retained column names.
+            dict: Mapping of table names to a score and list of annotated
+            columns for display.
     """
 
     pruned_schema = {}
+    pruned_with_scores = {}
     relationship_columns = identify_relationship_columns(schema, relationships)
 
     # Keep track of all unique columns across tables
@@ -241,6 +249,7 @@ def prune_non_relationship_columns(
 
     for table, table_data in schema.items():
         relevant_columns = []
+        scored_columns = []
         column_scores = []
 
         for column in table_data["columns"]:
@@ -250,6 +259,7 @@ def prune_non_relationship_columns(
             if column_name in relationship_columns:
                 if column_name not in unique_columns:
                     relevant_columns.append(column_name)
+                    scored_columns.append(f"{column_name} (relationship)")
                     unique_columns.add(column_name)
                 continue
 
@@ -266,26 +276,31 @@ def prune_non_relationship_columns(
 
         if similarity_threshold is not None:
             filtered = [
-                name
+                (name, score)
                 for name, score in column_scores
                 if score > similarity_threshold and name not in unique_columns
             ]
         else:
             column_scores.sort(key=lambda x: x[1], reverse=True)
             filtered = [
-                name
-                for name, _ in column_scores[:top_k_cols]
+                (name, score) for name, score in column_scores[:top_k_cols]
                 if name not in unique_columns
             ]
 
-        relevant_columns.extend(filtered)
-        unique_columns.update(filtered)
+        relevant_columns.extend([name for name, _ in filtered])
+        for name, score in filtered:
+            scored_columns.append(f"{name} ({round(float(score), 4)})")
+        unique_columns.update([name for name, _ in filtered])
 
         # Only add the table if it has relevant columns
         if relevant_columns:
             pruned_schema[table] = relevant_columns
+            pruned_with_scores[table] = {
+                "columns": scored_columns,
+                "score": None if table_scores is None else round(float(table_scores.get(table)), 4) if table_scores.get(table) is not None else None,
+            }
 
-    return pruned_schema
+    return pruned_schema, pruned_with_scores
 
 class ValidationAgent:
     def __init__(self, schema):
@@ -452,20 +467,25 @@ def main():
                 schema_embeddings,
                 top_k_tables=top_k_tables,
             )
+            table_scores = {t: data["score"] for t, data in relevant_tables.items()}
 
             # Step 2: Fetch relationships for the pruned tables
             relationships = neo4j_handler.fetch_relationships(relevant_tables)
 
             # Step 3: Prune columns based on relationships and Top-K relevance
-            pruned_schema = prune_non_relationship_columns(
+            pruned_schema, pruned_with_scores = prune_non_relationship_columns(
                 user_query_embedding,
                 schema,
                 relationships,
                 top_k_cols=top_k_columns,
+                table_scores=table_scores,
             )
 
             st.subheader("Pruned Schema")
-            st.json(pruned_schema)
+            st.markdown(
+                "**Similarity scores represent how closely a table or column matches the user query (1 = highly relevant). Columns without a score were kept due to relationships.**"
+            )
+            st.json(pruned_with_scores)
 
             # Generate SQL query based on pruned schema
             generated_sql = generate_sql_arliAI(
