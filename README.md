@@ -38,8 +38,16 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
    ```sh
    pip install -r requirements.txt
    ```
+4. **Set up pre-commit hooks**
+   Install `pre-commit` and initialize the git hooks:
 
-4. **Create a `.env` file**
+   ```sh
+   pip install pre-commit
+   pre-commit install
+   ```
+
+
+5. **Create a `.env` file**
    Define the following variables (or use `st.secrets` in a deployed environment):
 
    ```dotenv
@@ -50,7 +58,7 @@ This application is a Streamlit-based tool that utilizes NLP and Neo4j to genera
    ARLIAI_API_KEY=your_api_key
    ```
 
-5. **Run the app**
+6. **Run the app**
 
    ```sh
    streamlit run app.py
