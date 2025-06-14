@@ -9,11 +9,17 @@ optionally be corrected through the validation agent.
 import json
 import os
 import re
+from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 import requests
 import streamlit as st
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
+try:  # Driver is only used for type hints during local development
+    from neo4j import Driver
+except Exception:  # pragma: no cover - fallback for test stubs
+    from typing import Any as Driver
+from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -21,8 +27,59 @@ from sklearn.metrics.pairwise import cosine_similarity
 load_dotenv()
 
 
+class ColumnSchema(BaseModel):
+    """Representation of a single table column."""
+
+    name: str = Field(..., description="Column name")
+    description: str = Field("", description="Column description")
+
+
+class TableSchema(BaseModel):
+    """Schema for a database table."""
+
+    description: str = Field("", description="Table description")
+    columns: List[ColumnSchema]
+
+    @classmethod
+    def from_obj(cls, obj: Any) -> "TableSchema":
+        """Allow constructing from various structures used throughout the app."""
+        if isinstance(obj, cls):
+            return obj
+        if isinstance(obj, Mapping):
+            data = dict(obj)
+            cols = data.get("columns", [])
+            if cols and isinstance(cols[0], str):
+                data["columns"] = [ColumnSchema(name=c, description="") for c in cols]
+            return cls.model_validate(data)
+        if isinstance(obj, Sequence):
+            return cls(columns=[ColumnSchema(name=c, description="") for c in obj])
+        raise TypeError(f"Cannot create TableSchema from {type(obj)}")
+
+
+class DatabaseSchema(BaseModel):
+    """Container for all table schemas."""
+
+    tables: Dict[str, TableSchema]
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "DatabaseSchema":
+        """Create a ``DatabaseSchema`` from a raw mapping."""
+        if "tables" in data:
+            return cls.model_validate(data)
+        return cls.model_validate({"tables": data})
+
+    def __iter__(self) -> Iterable[Tuple[str, TableSchema]]:
+        return iter(self.tables.items())
+
+    def __getitem__(self, key: str) -> TableSchema:
+        return self.tables[key]
+
+    def items(self) -> Iterable[Tuple[str, TableSchema]]:
+        return self.tables.items()
+
+
 # Helper to fetch configuration from environment or Streamlit secrets
-def get_config(label: str, env_key: str, default: str = "", password: bool = False):
+def get_config(label: str, env_key: str, default: str = "", password: bool = False) -> str:
     """Retrieve a configuration value.
 
     Preference is given to ``st.secrets`` followed by environment variables.
@@ -40,14 +97,19 @@ def get_config(label: str, env_key: str, default: str = "", password: bool = Fal
 
 # Neo4j Handler
 class Neo4jHandler:
-    def __init__(self, uri, user, password, database):
+    """Wrapper around the Neo4j driver used to fetch schema information."""
+
+    driver: Driver
+    database: str
+
+    def __init__(self, uri: str, user: str, password: str, database: str) -> None:
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.database = database
 
-    def close(self):
+    def close(self) -> None:
         self.driver.close()
 
-    def fetch_table_schema(self):
+    def fetch_table_schema(self) -> DatabaseSchema:
         query = (
             "MATCH (t:Table)<-[:BELONGS_TO]-(c:Column)\n"
             "RETURN t.name AS table, t.description AS table_description, "
@@ -55,23 +117,23 @@ class Neo4jHandler:
         )
         with self.driver.session(database=self.database) as session:
             result = session.run(query)
-            schema = {}
+            schema: Dict[str, TableSchema] = {}
             for record in result:
                 table = record["table"]
                 if table not in schema:
-                    schema[table] = {
-                        "description": record["table_description"],
-                        "columns": [],
-                    }
-                schema[table]["columns"].append(
-                    {
-                        "name": record["column"],
-                        "description": record["column_description"],
-                    }
+                    schema[table] = TableSchema(
+                        description=record["table_description"],
+                        columns=[],
+                    )
+                schema[table].columns.append(
+                    ColumnSchema(
+                        name=record["column"],
+                        description=record["column_description"],
+                    )
                 )
-            return schema
+            return DatabaseSchema(tables=schema)
 
-    def fetch_relationships(self, relevant_tables):
+    def fetch_relationships(self, relevant_tables: Mapping[str, Any]) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """
         Fetch the relationships between the relevant tables.
         """
@@ -112,17 +174,16 @@ def fetch_embedding_locally(text):
 
 
 @st.cache_data
-def generate_schema_embeddings_locally(schema):
+def generate_schema_embeddings_locally(schema: DatabaseSchema) -> Dict[str, Dict[str, Any]]:
     """
     Generate schema embeddings using local SentenceTransformer with descriptions.
     """
-    schema_embeddings = {}
+    schema_embeddings: Dict[str, Dict[str, Any]] = {}
     for table, data in schema.items():
         # Create context that includes both the table and column descriptions
-        table_context = f"Table: {table}, Description: {data['description']}, Columns: "
+        table_context = f"Table: {table}, Description: {data.description}, Columns: "
         column_contexts = [
-            f"{column['name']} (Description: {column['description']})"
-            for column in data["columns"]
+            f"{column.name} (Description: {column.description})" for column in data.columns
         ]
         full_context = table_context + ", ".join(column_contexts)
 
@@ -130,7 +191,7 @@ def generate_schema_embeddings_locally(schema):
             embedding = fetch_embedding_locally(full_context)
             schema_embeddings[table] = {
                 "embedding": embedding,
-                "columns": [col["name"] for col in data["columns"]],
+                "columns": [col.name for col in data.columns],
             }
         except Exception as e:
             print(f"Failed to generate embedding for {table}. Error: {e}")
@@ -140,11 +201,11 @@ def generate_schema_embeddings_locally(schema):
 
 @st.cache_data
 def find_relevant_schema(
-    query_embedding,
-    schema_embeddings,
-    top_k_tables=5,
-    similarity_threshold=None,
-):
+    query_embedding: Sequence[float],
+    schema_embeddings: Mapping[str, Mapping[str, Any]],
+    top_k_tables: int = 5,
+    similarity_threshold: float | None = None,
+) -> Dict[str, Dict[str, Any]]:
     """Select relevant tables using either Top-K or threshold filtering.
 
     Args:
@@ -183,7 +244,9 @@ def find_relevant_schema(
     }
 
 
-def generate_sql_arliAI(api_key, user_query, pruned_schema):
+def generate_sql_arliAI(
+    api_key: str, user_query: str, pruned_schema: Mapping[str, Sequence[str]]
+) -> str:
     """
     Generate SQL query using ArliAI API.
     """
@@ -237,7 +300,9 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
 
 
 @st.cache_data
-def identify_relationship_columns(schema, relationships):
+def identify_relationship_columns(
+    schema: DatabaseSchema, relationships: Mapping[str, Any]
+) -> set[str]:
     """
     Identify relationship columns based on relationships between tables.
     """
@@ -256,13 +321,13 @@ def identify_relationship_columns(schema, relationships):
 
 @st.cache_data
 def prune_non_relationship_columns(
-    user_query_embedding,
-    schema,
-    relationships,
-    top_k_cols=5,
-    similarity_threshold=None,
-    table_scores=None,
-):
+    user_query_embedding: Sequence[float],
+    schema: DatabaseSchema,
+    relationships: Mapping[str, Any],
+    top_k_cols: int = 5,
+    similarity_threshold: float | None = None,
+    table_scores: Mapping[str, float | None] | None = None,
+) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, Any]]]:
     """Prune columns by keeping relationship columns and Top-K most relevant.
 
     Args:
@@ -293,8 +358,8 @@ def prune_non_relationship_columns(
         scored_columns = []
         column_scores = []
 
-        for column in table_data["columns"]:
-            column_name = column["name"]
+        for column in table_data.columns:
+            column_name = column.name
 
             # If the column is part of relationships, keep it immediately
             if column_name in relationship_columns:
@@ -306,7 +371,7 @@ def prune_non_relationship_columns(
 
             column_context = (
                 f"Table: {table}, Column: {column_name}, "
-                f"Description: {table_data['description']}"
+                f"Description: {table_data.description}"
             )
             column_embedding = fetch_embedding_locally(column_context)
             column_similarity = cosine_similarity(
@@ -354,10 +419,16 @@ def prune_non_relationship_columns(
 
 
 class ValidationAgent:
-    def __init__(self, schema):
-        self.schema = schema
+    """Utility for validating and correcting generated SQL."""
 
-    def parse_query(self, query):
+    schema: DatabaseSchema
+
+    def __init__(self, schema: DatabaseSchema | Mapping[str, Any]) -> None:
+        self.schema = (
+            schema if isinstance(schema, DatabaseSchema) else DatabaseSchema.from_dict(schema)
+        )
+
+    def parse_query(self, query: str) -> Tuple[List[str], List[str]]:
         """Parse the SQL query to identify tables and columns.
 
         The method attempts to use ``sqlglot`` for robust parsing which works
@@ -431,26 +502,26 @@ class ValidationAgent:
 
             return _dedupe(tables), _dedupe(columns)
 
-    def validate_schema(self, tables, columns):
+    def validate_schema(self, tables: Sequence[str], columns: Sequence[str]) -> List[str]:
         """
         Validate that the tables and columns in the query exist in the schema.
         """
         errors = []
         for table in tables:
-            if table not in self.schema:
+            if table not in self.schema.tables:
                 errors.append(f"Table '{table}' does not exist in the schema.")
             else:
                 for column in columns:
                     # Skip wildcard columns which implicitly reference all columns
                     if column in {"*", f"{table}.*"}:
                         continue
-                    if column not in self.schema[table]["columns"]:
+                    if column not in [c.name for c in self.schema[table].columns]:
                         errors.append(
                             f"Column '{column}' does not exist in table '{table}'."
                         )
         return errors
 
-    def correct_query(self, api_key, query, errors):
+    def correct_query(self, api_key: str, query: str, errors: Sequence[str]) -> str:
         """
         Send the erroneous SQL query and errors to the LLM for correction.
         """
@@ -504,7 +575,7 @@ class ValidationAgent:
             raise Exception(f"ArliAI API call failed: {response.text}")
 
 
-def main():
+def main() -> None:
     st.title("SQL Query Generator Using NLP with Validation")
 
     if "query_history" not in st.session_state:
@@ -561,7 +632,7 @@ def main():
     schema, schema_embeddings = initialize_schema_and_embeddings()
 
     st.subheader("Database Schema")
-    st.json(schema)
+    st.json(schema.model_dump())
 
     # Initialize the Neo4j handler again for fetching relationships after pruning
     neo4j_handler = Neo4jHandler(

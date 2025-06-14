@@ -62,16 +62,20 @@ SPEC = importlib.util.spec_from_file_location(
 app = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(app)
 ValidationAgent = app.ValidationAgent
+DatabaseSchema = app.DatabaseSchema
+TableSchema = app.TableSchema
 
 sqlglot = pytest.importorskip("sqlglot")
 
 
 @pytest.fixture
 def agent():
-    schema = {
-        "users": {"columns": ["id", "name", "age"]},
-        "orders": {"columns": ["user_id", "amount"]},
-    }
+    schema = DatabaseSchema.from_dict(
+        {
+            "users": {"columns": ["id", "name", "age"]},
+            "orders": {"columns": ["user_id", "amount"]},
+        }
+    )
     return ValidationAgent(schema)
 
 
