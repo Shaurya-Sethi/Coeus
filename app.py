@@ -6,18 +6,20 @@ based on user input. Generated queries are validated against the schema and can
 optionally be corrected through the validation agent.
 """
 
+import json
+import os
+import re
+
+import requests
 import streamlit as st
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-import json
-import requests
-import re
-import os
-from dotenv import load_dotenv
 
 # Load environment variables from a .env file if present
 load_dotenv()
+
 
 # Helper to fetch configuration from environment or Streamlit secrets
 def get_config(label: str, env_key: str, default: str = "", password: bool = False):
@@ -34,6 +36,7 @@ def get_config(label: str, env_key: str, default: str = "", password: bool = Fal
     if password:
         return st.sidebar.text_input(label, value=default, type="password")
     return st.sidebar.text_input(label, value=default)
+
 
 # Neo4j Handler
 class Neo4jHandler:
@@ -56,11 +59,16 @@ class Neo4jHandler:
             for record in result:
                 table = record["table"]
                 if table not in schema:
-                    schema[table] = {"description": record["table_description"], "columns": []}
-                schema[table]["columns"].append({
-                    "name": record["column"],
-                    "description": record["column_description"]
-                })
+                    schema[table] = {
+                        "description": record["table_description"],
+                        "columns": [],
+                    }
+                schema[table]["columns"].append(
+                    {
+                        "name": record["column"],
+                        "description": record["column_description"],
+                    }
+                )
             return schema
 
     def fetch_relationships(self, relevant_tables):
@@ -85,8 +93,10 @@ class Neo4jHandler:
                 relationships[table] = related_tables
         return relationships
 
+
 # Sentence-Transformer Model
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
 
 @st.cache_data
 def fetch_embedding_locally(text):
@@ -99,6 +109,7 @@ def fetch_embedding_locally(text):
     # Generate embedding
     embedding = model.encode([text])[0]
     return embedding.tolist()
+
 
 @st.cache_data
 def generate_schema_embeddings_locally(schema):
@@ -125,6 +136,7 @@ def generate_schema_embeddings_locally(schema):
             print(f"Failed to generate embedding for {table}. Error: {e}")
             raise
     return schema_embeddings
+
 
 @st.cache_data
 def find_relevant_schema(
@@ -156,7 +168,9 @@ def find_relevant_schema(
 
     if similarity_threshold is not None:
         selected = [
-            (table, sim) for table, sim in table_similarities if sim > similarity_threshold
+            (table, sim)
+            for table, sim in table_similarities
+            if sim > similarity_threshold
         ]
     else:
         # Fallback to Top-K selection
@@ -167,6 +181,7 @@ def find_relevant_schema(
         table: {"columns": schema_embeddings[table]["columns"], "score": sim}
         for table, sim in selected
     }
+
 
 def generate_sql_arliAI(api_key, user_query, pruned_schema):
     """
@@ -188,25 +203,26 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
     SQL:
     """
 
-    payload = json.dumps({
-        "model": "Mistral-Nemo-12B-Instruct-2407",
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a helpful assistant for generating SQL queries.",
-            },
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "max_tokens": 1024,
-        "n": 1
-    })
+    payload = json.dumps(
+        {
+            "model": "Mistral-Nemo-12B-Instruct-2407",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant for generating SQL queries."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "max_tokens": 1024,
+            "n": 1,
+        }
+    )
 
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f"Bearer {api_key}"
-    }
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
     response = requests.post(
         "https://api.arliai.com/v1/chat/completions",
@@ -218,6 +234,7 @@ def generate_sql_arliAI(api_key, user_query, pruned_schema):
         return response.json()["choices"][0]["message"]["content"].strip()
     else:
         raise Exception(f"ArliAI API call failed: {response.text}")
+
 
 @st.cache_data
 def identify_relationship_columns(schema, relationships):
@@ -231,8 +248,11 @@ def identify_relationship_columns(schema, relationships):
         for to_table, rels in related_tables.items():
             for rel in rels:
                 for key in rel.keys():  # Relationship property/column
-                    relationship_columns.add(key)  # Add property/column from the relationship
+                    relationship_columns.add(
+                        key
+                    )  # Add property/column from the relationship
     return relationship_columns
+
 
 @st.cache_data
 def prune_non_relationship_columns(
@@ -304,7 +324,8 @@ def prune_non_relationship_columns(
         else:
             column_scores.sort(key=lambda x: x[1], reverse=True)
             filtered = [
-                (name, score) for name, score in column_scores[:top_k_cols]
+                (name, score)
+                for name, score in column_scores[:top_k_cols]
                 if name not in unique_columns
             ]
 
@@ -318,10 +339,19 @@ def prune_non_relationship_columns(
             pruned_schema[table] = relevant_columns
             pruned_with_scores[table] = {
                 "columns": scored_columns,
-                "score": None if table_scores is None else round(float(table_scores.get(table)), 4) if table_scores.get(table) is not None else None,
+                "score": (
+                    None
+                    if table_scores is None
+                    else (
+                        round(float(table_scores.get(table)), 4)
+                        if table_scores.get(table) is not None
+                        else None
+                    )
+                ),
             }
 
     return pruned_schema, pruned_with_scores
+
 
 class ValidationAgent:
     def __init__(self, schema):
@@ -377,7 +407,7 @@ class ValidationAgent:
             # sqlglot is not installed.  This handles only simple queries.
             tables = re.findall(r"FROM\s+([\w\"`\[\]]+)", query, re.IGNORECASE)
             tables += re.findall(r"JOIN\s+([\w\"`\[\]]+)", query, re.IGNORECASE)
-            tables = [t.strip("\"`[]") for t in tables]
+            tables = [t.strip('"`[]') for t in tables]
 
             column_match = re.search(
                 r"SELECT\s+(.*?)\s+FROM",
@@ -387,7 +417,7 @@ class ValidationAgent:
             columns = []
             if column_match:
                 raw_cols = column_match.group(1)
-                columns = [c.strip().strip("\"`[]") for c in raw_cols.split(",")]
+                columns = [c.strip().strip('"`[]') for c in raw_cols.split(",")]
 
             # Remove duplicates while preserving order
             def _dedupe(items):
@@ -458,8 +488,8 @@ class ValidationAgent:
         )
 
         headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f"Bearer {api_key}"
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
         }
 
         response = requests.post(
@@ -508,8 +538,7 @@ def main():
     )
 
     user_query = st.text_area(
-        "User Query",
-        "List all users, their orders, and the products in those orders."
+        "User Query", "List all users, their orders, and the products in those orders."
     )
 
     @st.cache_resource
@@ -576,7 +605,9 @@ def main():
 
             st.subheader("Pruned Schema")
             st.markdown(
-                "**Similarity scores represent how closely a table or column matches the user query (1 = highly relevant). Columns without a score were kept due to relationships.**"
+                "**Similarity scores represent how closely a table or column matches "
+                "the user query (1 = highly relevant). Columns without a score were "
+                "kept due to relationships.**"
             )
             st.json(pruned_with_scores)
 
@@ -611,15 +642,17 @@ def main():
                 st.success("Generated SQL query is valid and aligns with the schema.")
 
             # Save query details to history
-            st.session_state.query_history.insert(0, {
-                "user_query": user_query,
-                "pruned_schema": pruned_with_scores,
-                "generated_sql": generated_sql,
-                "errors": errors,
-                "corrected_query": corrected_query,
-            })
+            st.session_state.query_history.insert(
+                0,
+                {
+                    "user_query": user_query,
+                    "pruned_schema": pruned_with_scores,
+                    "generated_sql": generated_sql,
+                    "errors": errors,
+                    "corrected_query": corrected_query,
+                },
+            )
             st.session_state.query_history = st.session_state.query_history[:10]
-
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
@@ -633,18 +666,19 @@ def main():
                 with st.expander(f"{idx + 1}. {item['user_query']}"):
                     st.markdown(f"**User Query:** {item['user_query']}")
                     st.markdown("**Pruned Schema:**")
-                    st.json(item['pruned_schema'])
+                    st.json(item["pruned_schema"])
                     st.markdown("**Generated SQL:**")
-                    st.code(item['generated_sql'], language="sql")
-                    if item['errors']:
+                    st.code(item["generated_sql"], language="sql")
+                    if item["errors"]:
                         st.markdown("**Validation Errors:**")
-                        for err in item['errors']:
+                        for err in item["errors"]:
                             st.error(err)
-                    if item['corrected_query']:
+                    if item["corrected_query"]:
                         st.markdown("**Corrected SQL Query:**")
-                        st.code(item['corrected_query'], language="sql")
+                        st.code(item["corrected_query"], language="sql")
         else:
             st.write("No queries yet.")
+
 
 if __name__ == "__main__":
     main()
