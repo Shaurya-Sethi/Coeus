@@ -13,6 +13,27 @@ from sklearn.metrics.pairwise import cosine_similarity
 import json
 import requests
 import re
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from a .env file if present
+load_dotenv()
+
+# Helper to fetch configuration from environment or Streamlit secrets
+def get_config(label: str, env_key: str, default: str = "", password: bool = False):
+    """Retrieve a configuration value.
+
+    Preference is given to ``st.secrets`` followed by environment variables.
+    If neither is set, a sidebar text input is shown as a fallback for local
+    development.
+    """
+    value = st.secrets.get(env_key) if env_key in st.secrets else os.getenv(env_key)
+    if value:
+        st.sidebar.text_input(label, value="Loaded from environment", disabled=True)
+        return value
+    if password:
+        return st.sidebar.text_input(label, value=default, type="password")
+    return st.sidebar.text_input(label, value=default)
 
 # Neo4j Handler
 class Neo4jHandler:
@@ -461,11 +482,11 @@ def main():
 
     # Inputs
     st.sidebar.header("Configuration")
-    neo4j_uri = st.sidebar.text_input("Neo4j URI", "bolt://localhost:7687")
-    neo4j_user = st.sidebar.text_input("Neo4j User", "neo4j")
-    neo4j_password = st.sidebar.text_input("Neo4j Password", type="password")
-    database_name = st.sidebar.text_input("Database Name", "e-commerce")
-    arliAI_api_key = st.sidebar.text_input("ArliAI API Key", type="password")
+    neo4j_uri = get_config("Neo4j URI", "NEO4J_URI", "bolt://localhost:7687")
+    neo4j_user = get_config("Neo4j User", "NEO4J_USER", "neo4j")
+    neo4j_password = get_config("Neo4j Password", "NEO4J_PASSWORD", password=True)
+    database_name = get_config("Database Name", "NEO4J_DATABASE", "e-commerce")
+    arliAI_api_key = get_config("ArliAI API Key", "ARLIAI_API_KEY", password=True)
 
     # Sliders for Top-K control
     top_k_tables = st.sidebar.slider(
