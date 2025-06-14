@@ -33,6 +33,7 @@ $ venv\Scripts\activate    # On Windows
 ```
 
 ### Install Dependencies
+Install the required packages from the `requirements.txt` file at the repository root:
 ```sh
 $ pip install -r requirements.txt
 ```
