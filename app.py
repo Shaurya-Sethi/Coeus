@@ -106,16 +106,43 @@ def generate_schema_embeddings_locally(schema):
     return schema_embeddings
 
 @st.cache_data
-def find_relevant_schema(query_embedding, schema_embeddings, threshold=0.2):
+def find_relevant_schema(
+    query_embedding,
+    schema_embeddings,
+    top_k_tables=5,
+    similarity_threshold=None,
+):
+    """Select relevant tables using either Top-K or threshold filtering.
+
+    Args:
+        query_embedding (List[float]): Embedding of the user query.
+        schema_embeddings (dict): Table embeddings generated from the schema.
+        top_k_tables (int, optional): Number of top tables to return based on
+            similarity. Used when ``similarity_threshold`` is ``None``.
+        similarity_threshold (float, optional): If provided, tables with
+            similarity above this threshold will be returned instead of using
+            ``top_k_tables``.
+
+    Returns:
+        dict: Mapping of table names to their list of columns.
     """
-    Find tables in the schema with embeddings similar to the query embedding.
-    """
-    relevant_schema = {}
+
+    table_similarities = []
     for table, data in schema_embeddings.items():
         similarity = cosine_similarity([query_embedding], [data["embedding"]])[0][0]
-        if similarity > threshold:
-            relevant_schema[table] = data["columns"]
-    return relevant_schema
+        table_similarities.append((table, similarity))
+
+    if similarity_threshold is not None:
+        return {
+            table: schema_embeddings[table]["columns"]
+            for table, sim in table_similarities
+            if sim > similarity_threshold
+        }
+
+    # Fallback to Top-K selection
+    table_similarities.sort(key=lambda x: x[1], reverse=True)
+    selected = table_similarities[:top_k_tables]
+    return {table: schema_embeddings[table]["columns"] for table, _ in selected}
 
 def generate_sql_arliAI(api_key, user_query, pruned_schema):
     """
@@ -188,11 +215,24 @@ def prune_non_relationship_columns(
     user_query_embedding,
     schema,
     relationships,
-    similarity_threshold,
+    top_k_cols=5,
+    similarity_threshold=None,
 ):
+    """Prune columns by keeping relationship columns and Top-K most relevant.
+
+    Args:
+        user_query_embedding (List[float]): Embedding of the user query.
+        schema (dict): Full database schema with descriptions.
+        relationships (dict): Relationship information between tables.
+        top_k_cols (int, optional): Number of most similar columns to keep per
+            table when ``similarity_threshold`` is ``None``.
+        similarity_threshold (float, optional): If provided, keep columns with
+            similarity above this value instead of using ``top_k_cols``.
+
+    Returns:
+        dict: Mapping of table names to a list of retained column names.
     """
-    Prune non-relationship columns based on similarity to the user query embedding.
-    """
+
     pruned_schema = {}
     relationship_columns = identify_relationship_columns(schema, relationships)
 
@@ -201,31 +241,45 @@ def prune_non_relationship_columns(
 
     for table, table_data in schema.items():
         relevant_columns = []
+        column_scores = []
 
         for column in table_data["columns"]:
             column_name = column["name"]
 
-            # If the column is part of relationships, keep it
+            # If the column is part of relationships, keep it immediately
             if column_name in relationship_columns:
-                relevant_columns.append(column_name)
-                unique_columns.add(column_name)  # Mark as unique
-            else:
-                # Check similarity for non-relationship columns
-                column_context = (
-                    f"Table: {table}, Column: {column_name}, "
-                    f"Description: {table_data['description']}"
-                )
-                column_embedding = fetch_embedding_locally(column_context)
-                column_similarity = cosine_similarity(
-                    [user_query_embedding], [column_embedding]
-                )[0][0]
+                if column_name not in unique_columns:
+                    relevant_columns.append(column_name)
+                    unique_columns.add(column_name)
+                continue
 
-                # Only keep if similarity is above threshold
-                if column_similarity > similarity_threshold:
-                    # Only add unique columns
-                    if column_name not in unique_columns:
-                        relevant_columns.append(column_name)
-                        unique_columns.add(column_name)
+            column_context = (
+                f"Table: {table}, Column: {column_name}, "
+                f"Description: {table_data['description']}"
+            )
+            column_embedding = fetch_embedding_locally(column_context)
+            column_similarity = cosine_similarity(
+                [user_query_embedding], [column_embedding]
+            )[0][0]
+
+            column_scores.append((column_name, column_similarity))
+
+        if similarity_threshold is not None:
+            filtered = [
+                name
+                for name, score in column_scores
+                if score > similarity_threshold and name not in unique_columns
+            ]
+        else:
+            column_scores.sort(key=lambda x: x[1], reverse=True)
+            filtered = [
+                name
+                for name, _ in column_scores[:top_k_cols]
+                if name not in unique_columns
+            ]
+
+        relevant_columns.extend(filtered)
+        unique_columns.update(filtered)
 
         # Only add the table if it has relevant columns
         if relevant_columns:
@@ -328,14 +382,23 @@ def main():
     database_name = st.sidebar.text_input("Database Name", "e-commerce")
     arliAI_api_key = st.sidebar.text_input("ArliAI API Key", type="password")
 
-    # Slider for similarity threshold
-    similarity_threshold = st.sidebar.slider(
-        "Similarity Threshold",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.2,
-        step=0.01,
-        help="Adjust the similarity threshold for pruning columns"
+    # Sliders for Top-K control
+    top_k_tables = st.sidebar.slider(
+        "Top K Tables",
+        min_value=1,
+        max_value=10,
+        value=5,
+        step=1,
+        help="Number of most relevant tables to select",
+    )
+
+    top_k_columns = st.sidebar.slider(
+        "Top K Columns",
+        min_value=1,
+        max_value=20,
+        value=5,
+        step=1,
+        help="Number of columns to keep per selected table",
     )
 
     user_query = st.text_area(
@@ -383,18 +446,22 @@ def main():
         try:
             user_query_embedding = fetch_embedding_locally(user_query)
 
-            # Step 1: Prune tables based on similarity with the query
-            relevant_tables = find_relevant_schema(user_query_embedding, schema_embeddings)
+            # Step 1: Select most relevant tables using Top-K
+            relevant_tables = find_relevant_schema(
+                user_query_embedding,
+                schema_embeddings,
+                top_k_tables=top_k_tables,
+            )
 
             # Step 2: Fetch relationships for the pruned tables
             relationships = neo4j_handler.fetch_relationships(relevant_tables)
 
-            # Step 3: Prune columns based on relationships and query relevance
+            # Step 3: Prune columns based on relationships and Top-K relevance
             pruned_schema = prune_non_relationship_columns(
                 user_query_embedding,
                 schema,
                 relationships,
-                similarity_threshold,
+                top_k_cols=top_k_columns,
             )
 
             st.subheader("Pruned Schema")
