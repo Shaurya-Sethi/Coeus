@@ -389,6 +389,9 @@ class ValidationAgent:
 def main():
     st.title("SQL Query Generator Using NLP with Validation")
 
+    if "query_history" not in st.session_state:
+        st.session_state["query_history"] = []
+
     # Inputs
     st.sidebar.header("Configuration")
     neo4j_uri = st.sidebar.text_input("Neo4j URI", "bolt://localhost:7687")
@@ -458,6 +461,8 @@ def main():
     if st.button("Generate SQL Query"):
         st.write("Processing your query...")
 
+        corrected_query = None
+
         try:
             user_query_embedding = fetch_embedding_locally(user_query)
 
@@ -517,9 +522,41 @@ def main():
             else:
                 st.success("Generated SQL query is valid and aligns with the schema.")
 
+            # Save query details to history
+            st.session_state.query_history.insert(0, {
+                "user_query": user_query,
+                "pruned_schema": pruned_with_scores,
+                "generated_sql": generated_sql,
+                "errors": errors,
+                "corrected_query": corrected_query,
+            })
+            st.session_state.query_history = st.session_state.query_history[:10]
+
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
+
+    with st.expander("Query History"):
+        if st.button("Clear History", key="clear_history"):
+            st.session_state.query_history = []
+
+        if st.session_state.query_history:
+            for idx, item in enumerate(st.session_state.query_history):
+                with st.expander(f"{idx + 1}. {item['user_query']}"):
+                    st.markdown(f"**User Query:** {item['user_query']}")
+                    st.markdown("**Pruned Schema:**")
+                    st.json(item['pruned_schema'])
+                    st.markdown("**Generated SQL:**")
+                    st.code(item['generated_sql'], language="sql")
+                    if item['errors']:
+                        st.markdown("**Validation Errors:**")
+                        for err in item['errors']:
+                            st.error(err)
+                    if item['corrected_query']:
+                        st.markdown("**Corrected SQL Query:**")
+                        st.code(item['corrected_query'], language="sql")
+        else:
+            st.write("No queries yet.")
 
 if __name__ == "__main__":
     main()
